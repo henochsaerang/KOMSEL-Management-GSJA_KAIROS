@@ -1,0 +1,85 @@
+
+        /* === Variabel CSS untuk Tema === */
+        :root {
+            --primary-color: #4f46e5; 
+            --bs-body-bg: #f8f9fa; 
+            --element-bg: #ffffff; 
+            --bs-body-color: #1f2937; 
+            --text-secondary: #6b7280; 
+            --border-color: #e5e7eb; 
+            --hover-bg: #f3f4f6; 
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        [data-bs-theme="dark"] {
+            --primary-color: #6366f1; 
+            --bs-body-bg: #111827; 
+            --element-bg: #1f2937; 
+            --bs-body-color: #f9fafb; 
+            --text-secondary: #9ca3af; 
+            --border-color: #374151; 
+            --hover-bg: #374151; 
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+            --bs-offcanvas-bg: var(--element-bg); 
+            --bs-offcanvas-border-color: var(--border-color); 
+            --bs-btn-close-color: #fff;
+            --bs-btn-outline-secondary-color: #adb5bd;
+            --bs-btn-outline-secondary-border-color: #6c757d;
+            --bs-btn-outline-secondary-hover-bg: #6c757d;
+            --bs-btn-outline-secondary-hover-color: #fff;
+            --bs-btn-outline-secondary-active-bg: #5c636a;
+            --bs-btn-outline-secondary-active-color: #fff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+
+        @media (min-width: 992px) {
+            body { display: flex; min-height: 100vh; }
+            .main-content-wrapper { flex-grow: 1; overflow-x: hidden; }
+        }
+        
+        .solid-white-bg { background-color: var(--element-bg); }
+        .sidebar-desktop { border-right: 1px solid var(--border-color); }
+        .top-navbar { border-bottom: 1px solid var(--border-color); }
+        .card { border: 1px solid var(--border-color); box-shadow: var(--shadow); }
+
+        .sidebar-desktop .sidebar-brand, .sidebar-mobile-brand { color: var(--bs-body-color); }
+        .nav-link { color: var(--text-secondary); }
+        .sidebar-desktop .nav-link:hover, .sidebar-mobile .nav-link:hover {
+            color: var(--primary-color);
+            background-color: var(--hover-bg);
+        }
+        .nav-link.active {
+            color: #ffffff;
+            background-color: var(--primary-color);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        [data-bs-theme="dark"] .nav-link.active {
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        .sidebar-mobile .offcanvas-header { border-bottom: 1px solid var(--border-color); }
+        
+        .sidebar-desktop { width: 260px; flex-shrink: 0; padding: 1rem; }
+        .sidebar-desktop .sidebar-brand { font-size: 1.5rem; font-weight: 700; padding: 1rem 0.5rem; }
+        .sidebar-desktop .nav-link { font-size: 1rem; font-weight: 500; padding: 12px 20px; margin-bottom: 8px; border-radius: 0.75rem; transition: all 0.2s ease-in-out; }
+        .sidebar-desktop .nav-link .bi { margin-right: 15px; font-size: 1.2rem; }
+        .sidebar-mobile-brand { font-size: 1.5rem; font-weight: 700; }
+        
+        .top-navbar { position: sticky; top: 0; z-index: 1020; }
+        .card { border-radius: 1rem; }
+        .avatar-initials { display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; background-color: var(--primary-color); width: 40px; height: 40px; }
+        .sidebar-logo { max-height: 40px; margin-right: 10px; }
+
+        /* CSS BARU UNTUK TOMBOL TEMA DI DROPDOWN */
+        .theme-btn.active {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #fff;
+        }
+        [data-bs-theme="dark"] .theme-btn.active {
+             color: #fff !important; /* Paksa warna teks menjadi putih saat aktif di mode gelap */
+        }

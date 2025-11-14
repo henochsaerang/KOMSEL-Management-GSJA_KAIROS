@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="id" class=""> <!-- class="dark" akan ditambahkan oleh JS -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Modern</title>
+    
+    <!-- Memuat Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Konfigurasi Tailwind untuk Dark Mode -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Mengaktifkan dark mode berbasis class
+            theme: {
+                extend: {
+                    transitionProperty: {
+                        'width': 'width',
+                        'margin': 'margin-left',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Gaya untuk scrollbar yang lebih modern (opsional) */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        .dark ::-webkit-scrollbar-track { background: #2d3748; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans transition-colors duration-300">
+
+    <div class="flex min-h-screen">
+        <!-- === SIDEBAR === -->
+        <aside id="sidebar" class="bg-white dark:bg-gray-800 w-64 h-full fixed top-0 left-0 transition-all duration-300 ease-in-out z-40 shadow-lg -translate-x-full lg:translate-x-0">
+            
+            <!-- Logo / Judul Sidebar (STRUKTUR BARU & FLEKSIBEL) -->
+            <div class="flex items-center justify-center p-4 h-[73px] border-b border-gray-200 dark:border-gray-700 overflow-hidden">
+                <!-- WADAH 1: Logo saat sidebar terbuka (expanded) -->
+                <!-- Anda bisa menaruh gambar, teks, atau keduanya di sini -->
+                <a href="/" id="logo-container-expanded" class="flex items-center space-x-3 min-w-0">
+                    <!-- Gambar Logo -->
+                    <img src="../photo_testing/logo_gsja_kairos.png" alt="Logo Lengkap" class="h-10 object-contain flex-shrink-0">
+                    <!-- Teks di samping logo (gunakan class sidebar-text agar ikut menghilang) -->
+                    <span class="font-bold text-lg whitespace-nowrap sidebar-text">Dashboard</span>
+                </a>
+                
+                <!-- WADAH 2: Logo saat sidebar diciutkan (collapsed) -->
+                <!-- Biasanya hanya berisi ikon atau gambar kecil -->
+                <a href="/" id="logo-container-collapsed" class="hidden">
+                    <img src="../photo_testing/logo_gsja_kairos.png" alt="Ikon Logo" class="w-9 h-9 object-contain">
+                </a>
+            </div>
+            
+            <!-- Menu Navigasi -->
+            <nav class="mt-4">
+                <a href="#" class="flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 overflow-hidden whitespace-nowrap">
+                    <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span class="ml-4 font-semibold sidebar-text transition-opacity duration-200">Dashboard</span>
+                </a>
+                <a href="#" class="flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 overflow-hidden whitespace-nowrap">
+                    <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    <span class="ml-4 sidebar-text transition-opacity duration-200">Anggota Komsel</span>
+                </a>
+                <a href="#" class="flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 overflow-hidden whitespace-nowrap">
+                    <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <span class="ml-4 sidebar-text transition-opacity duration-200">Acara Mendatang</span>
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Overlay untuk mobile saat sidebar terbuka -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
+
+        <!-- === KONTEN UTAMA === -->
+        <div id="main-content" class="flex-1 flex flex-col lg:ml-64 transition-margin duration-300 ease-in-out">
+            <!-- === HEADER === -->
+            <header class="sticky top-0 bg-white/80 dark:bg-gray-900/70 backdrop-blur-lg border-b border-gray-200 dark:border-white/10 z-20">
+                <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-between h-16">
+                        <div class="flex items-center">
+                            <!-- Tombol Hamburger (hanya di mobile) -->
+                            <button id="mobile-hamburger-button" class="lg:hidden text-gray-600 dark:text-gray-300 focus:outline-none mr-4">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                            </button>
+                            
+                             <!-- Tombol Burger Toggle Sidebar Desktop -->
+                            <button id="desktop-sidebar-toggle" class="hidden lg:block text-gray-600 dark:text-gray-300 focus:outline-none">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                            </button>
+                        </div>
+
+                        <!-- Tombol Kanan: Dark Mode & Profil -->
+                        <div class="flex items-center space-x-4">
+                            <button id="theme-toggle" class="text-gray-600 dark:text-gray-300 focus:outline-none p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                                <svg id="theme-icon-light" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                <svg id="theme-icon-dark" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                            </button>
+                            <div class="relative">
+                                <img class="h-10 w-10 rounded-full object-cover" src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="Profil Pengguna">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- === ISI KONTEN === -->
+            <main class="flex-1 p-6">
+                <h1 class="text-3xl font-bold mb-6">Dashboard</h1>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm text-gray-500 dark:text-gray-400">Total Anggota</p><p class="text-3xl font-bold">42</p></div>
+                            <div class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-500 dark:text-indigo-400 p-3 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21v-2a6 6 0 00-12 0v2"></path></svg></div>
+                        </div><p class="text-xs text-green-500 mt-4">+2 orang minggu ini</p>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm text-gray-500 dark:text-gray-400">Kehadiran Rata-rata</p><p class="text-3xl font-bold">85%</p></div>
+                            <div class="bg-green-100 dark:bg-green-900/50 text-green-500 dark:text-green-400 p-3 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                        </div><p class="text-xs text-green-500 mt-4">Naik 5% dari bulan lalu</p>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm text-gray-500 dark:text-gray-400">Acara Mendatang</p><p class="text-3xl font-bold">3</p></div>
+                            <div class="bg-yellow-100 dark:bg-yellow-900/50 text-yellow-500 dark:text-yellow-400 p-3 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>
+                        </div><p class="text-xs text-gray-500 mt-4">Ibadah Padang minggu depan</p>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                        <div class="flex justify-between items-start">
+                            <div><p class="text-sm text-gray-500 dark:text-gray-400">Anggota Baru</p><p class="text-3xl font-bold">5</p></div>
+                            <div class="bg-blue-100 dark:bg-blue-900/50 text-blue-500 dark:text-blue-400 p-3 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg></div>
+                        </div><p class="text-xs text-gray-500 mt-4">Dalam 30 hari terakhir</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+        
+    </div>
+
+    <!-- === JAVASCRIPT === -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // === SCRIPT UNTUK SIDEBAR MOBILE (SLIDE IN/OUT) ===
+            const mobileHamburgerButton = document.getElementById('mobile-hamburger-button');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+            const mainContent = document.getElementById('main-content');
+
+            function toggleMobileSidebar() {
+                sidebar.classList.toggle('-translate-x-full');
+                sidebarOverlay.classList.toggle('hidden');
+            }
+
+            mobileHamburgerButton.addEventListener('click', toggleMobileSidebar);
+            sidebarOverlay.addEventListener('click', toggleMobileSidebar);
+
+            // === SCRIPT UNTUK SIDEBAR DESKTOP (COLLAPSE/EXPAND) (LOGIKA BARU) ===
+            const desktopSidebarToggle = document.getElementById('desktop-sidebar-toggle');
+            // Ambil elemen wadah logo yang baru
+            const logoContainerExpanded = document.getElementById('logo-container-expanded');
+            const logoContainerCollapsed = document.getElementById('logo-container-collapsed');
+            const sidebarTexts = document.querySelectorAll('.sidebar-text');
+            
+            let isSidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+            function applySidebarState(collapsed) {
+                if (collapsed) {
+                    sidebar.classList.remove('w-64');
+                    sidebar.classList.add('w-20');
+                    mainContent.classList.remove('lg:ml-64');
+                    mainContent.classList.add('lg:ml-20');
+                    
+                    // Sembunyikan wadah logo besar dan tampilkan yang kecil
+                    logoContainerExpanded.classList.add('hidden');
+                    logoContainerCollapsed.classList.remove('hidden');
+
+                    // Sembunyikan semua teks (termasuk teks di samping logo)
+                    sidebarTexts.forEach(text => text.classList.add('opacity-0', 'invisible'));
+                } else {
+                    sidebar.classList.remove('w-20');
+                    sidebar.classList.add('w-64');
+                    mainContent.classList.remove('lg:ml-20');
+                    mainContent.classList.add('lg:ml-64');
+                    
+                    // Tampilkan wadah logo besar dan sembunyikan yang kecil
+                    logoContainerExpanded.classList.remove('hidden');
+                    logoContainerCollapsed.classList.add('hidden');
+                    
+                    // Tampilkan kembali semua teks setelah transisi sidebar selesai
+                    setTimeout(() => {
+                         sidebarTexts.forEach(text => text.classList.remove('opacity-0', 'invisible'));
+                    }, 150);
+                }
+            }
+            
+            applySidebarState(isSidebarCollapsed);
+
+            desktopSidebarToggle.addEventListener('click', () => {
+                isSidebarCollapsed = !isSidebarCollapsed;
+                localStorage.setItem('sidebarCollapsed', isSidebarCollapsed);
+                applySidebarState(isSidebarCollapsed);
+            });
+
+            // === SCRIPT UNTUK DARK MODE TOGGLE ===
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const themeIconLight = document.getElementById('theme-icon-light');
+            const themeIconDark = document.getElementById('theme-icon-dark');
+            const htmlElement = document.documentElement;
+
+            function applyTheme(theme) {
+                if (theme === 'dark') {
+                    htmlElement.classList.add('dark');
+                    themeIconLight.classList.remove('hidden');
+                    themeIconDark.classList.add('hidden');
+                } else {
+                    htmlElement.classList.remove('dark');
+                    themeIconLight.classList.add('hidden');
+                    themeIconDark.classList.remove('hidden');
+                }
+            }
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                applyTheme('dark');
+            } else {
+                applyTheme('light');
+            }
+            themeToggleBtn.addEventListener('click', () => {
+                const isDark = htmlElement.classList.contains('dark');
+                if (isDark) {
+                    applyTheme('light');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    applyTheme('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

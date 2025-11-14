@@ -1,0 +1,39 @@
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #2d3748;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Modal Styles */
+#modal-overlay {
+    transition: opacity 300ms ease-in-out;
+}
+
+#modal-container {
+    transition: all 300ms ease-in-out;
+}
+
+#modal-overlay.modal-open {
+    display: block;
+}
+
+#modal-container.modal-open {
+    opacity: 1;
+    transform: scale(1);
+}
