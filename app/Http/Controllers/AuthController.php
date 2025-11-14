@@ -1,37 +1,53 @@
 <?php
-namespace App\Http\Controllers;
 
-use App\Models\User; // <-- [PENTING] Import User
-use Illuminate\Http\Request;
+namespace App\Http\Controllers; // Sesuaikan namespace Anda
+
+use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Services\OldApiService;
-use Illuminate\Support\Facades\Auth; // <-- [PENTING] Import Auth
-use Illuminate\Support\Facades\Hash; // <-- [PENTING] Import Hash
-use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash; 
 
 class AuthController extends Controller
 {
     protected $apiService;
 
-    /**
-     * Inject OldApiService
-     */
+    // Pastikan ini ada
     public function __construct(OldApiService $apiService)
     {
-        // [PERBAIKAN] Menggunakan '->' (panah) bukan '.' (titik)
         $this->apiService = $apiService;
     }
 
     /**
-     * Menampilkan halaman login.
+     * Menampilkan halaman (view) login.
      */
-    public function login() 
+    public function login()
     {
-        return view('Auth.login');
+        return view('auth.login'); // Pastikan nama view ini benar
     }
 
     /**
-     * [LOGIKA HYBRID]
-     * Mengizinkan SEMUA user (Admin & Jemaat) yang valid di API.
+     * Menampilkan halaman (view) signup/register.
+     */
+    public function signup()
+    {
+        return view('auth.signup'); // Pastikan nama view ini benar
+    }
+
+    /**
+     * [PLACEHOLDER] Menangani pendaftaran user baru.
+     */
+    public function register(Request $request) 
+    {
+        return redirect()->route('login')->with('success', 'Registrasi belum diimplementasikan.');
+    }
+
+
+    /**
+     * [FIXED] Menangani percobaan autentikasi
+     * Menggunakan logika "enrichment" (perbandingan) yang Anda sarankan.
      */
     public function authenticate(Request $request)
     {
@@ -40,55 +56,75 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        // 1. Coba login ke API Lama
-        $apiResponse = $this->apiService->login($credentials['email'], $credentials['password']);
+        // 1. Panggil API Login (yang datanya tidak lengkap)
+        $apiLoginData = $this->apiService->login($credentials['email'], $credentials['password']);
 
-        // 2. Jika API menolak (login gagal)
-        if ($apiResponse === null || !isset($apiResponse['user'])) {
-            throw ValidationException::withMessages([
-                'email' => 'Email atau Password dari API lama salah.',
-            ]);
+        if (!$apiLoginData || !isset($apiLoginData['user'])) {
+            return back()->withErrors([
+                'email' => 'Email atau Password yang diberikan tidak cocok.',
+            ])->onlyInput('email');
         }
-        
-        $apiUser = $apiResponse['user'];
-        
-        // 3. (Pengecekan 'roles' sudah dihapus, Jemaat BISA login)
 
-        // 4. SUKSES! Buat atau Perbarui "jejak" user LOKAL
-        $localUser = User::updateOrCreate(
+        $apiUser = $apiLoginData['user']; // Data dari /login_user (roles-nya salah/kosong)
+        $apiUserId = $apiUser['id'];
+        $userName = $apiUser['name'] ?? $apiUser['nama'] ?? 'User Tanpa Nama';
+
+        // [FIX 2] Logika "Perbandingan" (Enrichment) Anda
+        // Kita default ke data login yang 'rusak' (roles kosong)
+        $finalRoles = $apiUser['roles'] ?? []; 
+        $finalKomsels = []; 
+
+        // Panggil data 'getAllLeaders' (yang datanya LENGKAP)
+        $allLeaders = Cache::remember('api_leader_list_v2', 3600, function () {
+            return $this->apiService->getAllLeaders();
+        });
+
+        if ($allLeaders) {
+            // Cari user yang login di dalam daftar leader
+            $thisLeaderData = collect($allLeaders)->firstWhere('id', $apiUserId);
+            
+            // JIKA KETEMU (Dia adalah Leader/Admin)
+            if ($thisLeaderData) {
+                // Timpa data roles/komsels yang salah dengan data yang benar
+                $finalRoles = $thisLeaderData['roles'] ?? [];
+                $finalKomsels = $thisLeaderData['komsels'] ?? [];
+            }
+            // JIKA TIDAK KETEMU (Dia Jemaat asli)
+            // Biarkan $finalRoles dan $finalKomsels tetap kosong.
+        }
+
+        // [FIX 3] Simpan data 'jejak' lokal (DB)
+        $user = User::updateOrCreate(
+            ['email' => $apiUser['email']], // Cari berdasarkan email
             [
-                'email' => $apiUser['email'] // Kunci unik
-            ],
-            [
-                'name' => $apiUser['name'],
-                'roles' => $apiUser['roles'] ?? [], // Jemaat akan menyimpan []
-                'old_api_id' => $apiUser['id'], // Simpan ID dari API lama
-                'status' => 'aktif', // Mengisi 'status'
-                'password' => Hash::make($credentials['password']) // Opsional
+                'id' => $apiUserId,
+                'name' => $userName, 
+                'password' => Hash::make($credentials['password']), 
+                'roles' => $finalRoles, // Simpan roles yang BENAR
             ]
         );
 
-        // 5. [INTI] Login-kan user LOKAL ke Sesi Laravel
-        Auth::login($localUser, $request->boolean('remember'));
-
+        // 4. Login-kan user secara lokal
+        Auth::login($user, $request->remember);
         $request->session()->regenerate();
-        return redirect()->intended('dashboard');
+
+        // 5. SIMPAN DATA YANG BENAR KE SESSION
+        $request->session()->put('user_komsel_ids', $finalKomsels);
+        $request->session()->put('user_roles', $finalRoles);
+        $request->session()->put('is_super_admin', in_array('super_admin', $finalRoles));
+
+        // 6. Arahkan ke dashboard
+        return redirect()->intended(route('dashboard'));
     }
 
     /**
-     * Logout dari Sesi LOKAL
+     * Menghancurkan sesi.
      */
-    public function logout(Request $request) 
+    public function logout(Request $request)
     {
-        // Panggil service logout API (meskipun kosong)
-        $this->apiService->logout(); 
-        
-        Auth::logout(); // Logout dari sesi LOKAL
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        
-        return redirect()->route('login')->with('success', 'Anda telah berhasil logout.');
+        return redirect(route('login'));
     }
-    
-    // Hapus method 'signup' dan 'register' dari controller ini
 }
