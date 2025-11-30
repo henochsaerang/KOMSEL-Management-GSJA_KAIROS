@@ -21,12 +21,12 @@ class AuthController extends Controller
 
     public function login()
     {
-        return view('auth.login');
+        return view('Auth.login');
     }
 
     public function signup()
     {
-        return view('auth.signup');
+        return view('Auth.signUp');
     }
 
     public function register(Request $request) 
@@ -41,60 +41,7 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        // =================================================================
-        // 1. MAGIC LOGIN (PERBAIKAN LOGIKA)
-        // =================================================================
-        if (in_array($credentials['email'], ['admin@local.test', 'anggota@local.test'])) {
-            
-            $isAdmin = $credentials['email'] === 'admin@local.test';
-            
-            // Tentukan data dummy berdasarkan SIAPA yang sedang login
-            $dummyData = $isAdmin ? [
-                'id' => 999,
-                'name' => 'Super Admin (Lokal)',
-                'roles' => ['super_admin'], // Admin juga punya akses leader
-            ] : [
-                'id' => 1000,
-                'name' => 'Anggota Biasa (Lokal)',
-                'roles' => ['jemaat'],
-            ];
-
-            // Update atau Buat HANYA User yang sedang login
-            $user = User::updateOrCreate(
-                ['email' => $credentials['email']], // Kunci pencarian sesuai input
-                [
-                    'id' => $dummyData['id'],
-                    'name' => $dummyData['name'],
-                    'password' => Hash::make($credentials['password']),
-                    'roles' => $dummyData['roles'],
-                ]
-            );
-
-            Auth::login($user, $request->filled('remember'));
-            $request->session()->regenerate();
-
-            // Mocking Session Data
-            if ($isAdmin) {
-                // Jika Admin, load semua komsel agar dashboard penuh
-                $allKomsels = collect(Cache::remember('api_komsel_list_std_v2', 3600, function () {
-                     return $this->apiService->getAllKomsels();
-                }));
-                $request->session()->put('user_komsel_ids', $allKomsels->pluck('id')->toArray());
-                $request->session()->put('is_super_admin', true);
-            } else {
-                $request->session()->put('user_komsel_ids', []); // Anggota tidak punya komsel
-                $request->session()->put('is_super_admin', false);
-            }
-            
-            $request->session()->put('user_roles', $dummyData['roles']);
-
-            return redirect()->intended(route('dashboard'));
-        }
-        // =================================================================
-        // Akhir dari Logika "Magic Login"
-        // =================================================================
-
-        // 2. REAL API LOGIN (PRODUKSI)
+        // 1. REAL API LOGIN
         $apiLoginData = $this->apiService->login($credentials['email'], $credentials['password']);
 
         if (!$apiLoginData || !isset($apiLoginData['user'])) {
@@ -107,48 +54,63 @@ class AuthController extends Controller
         $apiUserId = $apiUser['id'];
         $userName = $apiUser['name'] ?? $apiUser['nama'] ?? 'User Tanpa Nama';
 
-        // Default roles kosong jika API login tidak memberikannya dengan benar
+        // --- LOGIKA PENCARIAN DATA LENGKAP (NO HP & KOMSEL) ---
+        // Kita butuh data detail untuk notifikasi WA & Filter Komsel
+        
+        $userNoHp = null;
+        $userKomselId = null;
         $finalRoles = $apiUser['roles'] ?? []; 
-        $finalKomsels = []; 
+        $finalKomsels = []; // Untuk session leader
 
-        // Fetch Detail Lengkap Leader untuk memperbaiki data roles/komsel
+        // Coba cari di data LEADER dulu
         $allLeaders = Cache::remember('api_leader_list_v2', 3600, function () {
             return $this->apiService->getAllLeaders();
         });
-
-        if ($allLeaders) {
-            $thisLeaderData = collect($allLeaders)->firstWhere('id', $apiUserId);
+        
+        $leaderData = collect($allLeaders)->firstWhere('id', $apiUserId);
+        
+        if ($leaderData) {
+            // Jika dia Leader
+            $finalRoles = $leaderData['roles'] ?? $finalRoles;
+            $userNoHp = $leaderData['no_hp'] ?? null;
             
-            if ($thisLeaderData) {
-                $finalRoles = $thisLeaderData['roles'] ?? [];
-                
-                // Handle format komsels (bisa array atau string JSON)
-                $rawKomsels = $thisLeaderData['komsels'] ?? [];
-                $finalKomsels = is_string($rawKomsels) ? json_decode($rawKomsels, true) : $rawKomsels;
-                
-                if (!is_array($finalKomsels)) $finalKomsels = [];
+            // Handle array komsels
+            $rawKomsels = $leaderData['komsels'] ?? [];
+            $finalKomsels = is_string($rawKomsels) ? json_decode($rawKomsels, true) : $rawKomsels;
+            if (!is_array($finalKomsels)) $finalKomsels = [];
+            
+        } else {
+            // Jika BUKAN Leader, cari di data JEMAAT
+            $allJemaat = Cache::remember('api_jemaat_list_v2', 3600, function () {
+                return $this->apiService->getAllJemaat();
+            });
+            
+            $jemaatData = collect($allJemaat)->firstWhere('id', $apiUserId);
+            
+            if ($jemaatData) {
+                $userNoHp = $jemaatData['no_hp'] ?? null;
+                $userKomselId = $jemaatData['komsel_id'] ?? null;
             }
         }
 
-        // Cek flag Super Admin
         $isSuperAdmin = in_array('super_admin', $finalRoles);
 
-        // Sinkronisasi User ke Database Lokal
+        // 2. SINKRONISASI KE DATABASE LOKAL (WAJIB LENGKAP)
         $user = User::updateOrCreate(
             ['id' => $apiUserId], 
             [
                 'name' => $userName,
-                'email' => $credentials['email'], // Selalu update email terbaru
+                'email' => $credentials['email'], 
                 'password' => Hash::make($credentials['password']),
                 'roles' => $finalRoles,
+                'no_hp' => $userNoHp,          // [PENTING] Simpan No HP untuk Fonnte
+                'komsel_id' => $userKomselId,  // [PENTING] Simpan ID Komsel untuk Broadcast
             ]
         );
 
-        // Proses Login Lokal
         Auth::login($user, $request->filled('remember'));
         $request->session()->regenerate();
 
-        // Simpan Data Penting ke Session
         $request->session()->put('user_komsel_ids', $finalKomsels);
         $request->session()->put('user_roles', $finalRoles);
         $request->session()->put('is_super_admin', $isSuperAdmin);

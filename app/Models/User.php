@@ -25,7 +25,10 @@ class User extends Authenticatable
         'email', 
         'password', 
         'roles',
-        'is_coordinator' // [BARU] Penting untuk fitur penobatan
+        'is_coordinator', // [BARU] Penting untuk fitur penobatan
+        'scheduling_unlock_until',
+        'no_hp',      // Tambahkan
+        'komsel_id',   // Tambahkan
     ];
 
     protected $hidden = [
