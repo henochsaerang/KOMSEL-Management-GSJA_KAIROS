@@ -10,10 +10,10 @@ use App\Models\GuestAttendance;
 
 // Service & Helper
 use App\Services\OldApiService;
-use Illuminate\Http\Request; // [PENTING] Untuk membaca Session
+use Illuminate\Http\Request; 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Auth; // [PENTING] Untuk mengambil user
+use Illuminate\Support\Facades\Auth; 
 
 class KomselController extends Controller
 {
@@ -21,7 +21,7 @@ class KomselController extends Controller
     
     // Definisikan cache key yang unik dan terstruktur
     const CACHE_KEY = [
-        'jemaat_list' => 'api_jemaat_list_v2', // Data dari getAllJemaat (yang kini memanggil getAllMembers)
+        'jemaat_list' => 'api_jemaat_list_v2',
         'jemaat_map'  => 'api_jemaat_map_by_id_v2',
         'leader_list' => 'api_leader_list_v2',
         'leader_map'  => 'api_leader_map_by_id_v2',
@@ -39,58 +39,50 @@ class KomselController extends Controller
     /**
      * Menampilkan daftar anggota, difilter berdasarkan SESSION.
      */
-    public function daftar(Request $request) // Inject Request
+    public function daftar(Request $request) 
     {
-        // Ambil data scoping dari SESSION
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []); 
 
-        // 1. Ambil data Admin/Leaders (selalu diperlukan untuk data gabungan)
-        $admins = Cache::remember(self::CACHE_KEY['leader_list'], self::CACHE_TTL, function () {
+        // [FIX 1] Bungkus hasil Cache::remember dengan collect()
+        $admins = collect(Cache::remember(self::CACHE_KEY['leader_list'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllLeaders();
-            return $data ? collect($data)->filter() : collect();
-        });
+            return $data ? $data : []; // Kembalikan array kosong jika null
+        }));
 
-        // 2. Ambil data Jemaat
-        $jemaat = Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, function () {
+        // [FIX 2] Bungkus hasil Cache::remember dengan collect()
+        $jemaat = collect(Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllJemaat(); 
-            return $data ? collect($data)->filter() : collect();
-        });
+            return $data ? $data : [];
+        }));
 
-        // 3. Ambil data Komsel
-        $komsels = Cache::remember(self::CACHE_KEY['komsel_list'], self::CACHE_TTL, function () {
+        // [FIX 3] Bungkus hasil Cache::remember dengan collect()
+        $komsels = collect(Cache::remember(self::CACHE_KEY['komsel_list'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllKomsels();
-            return $data ? collect($data)->filter()->sortBy('nama')->values() : collect();
-        });
+            return $data ? $data : [];
+        }))->sortBy('nama')->values(); // Sorting bisa dilakukan di luar closure
 
-        // [FIX] Logika Scoping (Pembatasan Data)
         $jemaatToShow = $jemaat;
         $komselsToShow = $komsels;
 
-        if (!$isSuperAdmin) {
-            // JIKA BUKAN SUPER ADMIN (cth: Leader)
-            
-            // 1. Filter Jemaat: Tampilkan hanya jemaat dari komsel yang dia pimpin
+        // [FIX 4] Filter HANYA jika dia Leader (bukan admin, tapi punya komsel)
+        if (!$isSuperAdmin && !empty($leaderKomselIds)) {
             $jemaatToShow = $jemaat->whereIn('komsel_id', $leaderKomselIds);
-            
-            // 2. Filter Dropdown Komsel: Tampilkan hanya komsel yang dia pimpin
             $komselsToShow = $komsels->whereIn('id', $leaderKomselIds);
         }
 
-        // 4. Gabungkan (Leaders + Jemaat yang sudah difilter)
+        // [FIX 5] Filter $admins (yang merupakan collection)
         $allUsers = $admins->concat($jemaatToShow);
 
-        // 5. Filter HANYA untuk 'Anggota' (roles kosong)
         $anggotaOnly = $allUsers->filter(function ($user) {
             return empty($user['roles']);
         });
 
-        // 6. Urutkan
         $sortedUsers = $anggotaOnly->sortBy('nama');
 
         return view('KOMSEL.daftarkomsel', [
-            'users' => $sortedUsers,   // Kirim jemaat yang sudah difilter
-            'komsels' => $komselsToShow, // Kirim komsel yang sudah difilter
+            'users' => $sortedUsers,   
+            'komsels' => $komselsToShow, 
         ]);
     }
 
@@ -103,22 +95,20 @@ class KomselController extends Controller
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []); 
 
-        $komselsApi = Cache::remember(self::CACHE_KEY['komsel_map'], self::CACHE_TTL, function () {
+        // [FIX] Bungkus hasil Cache::remember dengan collect()
+        $komselsApi = collect(Cache::remember(self::CACHE_KEY['komsel_map'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllKomsels();
-            return $data ? collect($data)->filter()->keyBy('id') : collect();
-        });
+            return $data ? collect($data)->filter()->keyBy('id')->all() : []; // Simpan sebagai array
+        }));
 
-        // Query dasar untuk jadwal LOKAL
         $schedulesQuery = Schedule::orderBy('created_at', 'desc');
 
-        // [FIX] Terapkan scoping jika bukan Super Admin
-        if (!$isSuperAdmin) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds)) {
             $schedulesQuery->whereIn('komsel_id', $leaderKomselIds);
         }
         
         $schedules = $schedulesQuery->get();
 
-        // Gabungkan data
         foreach ($schedules as $schedule) {
             if ($komselsApi->has($schedule->komsel_id)) {
                 $schedule->komsel_name = $komselsApi->get($schedule->komsel_id)['nama'] ?? 'Komsel API';
@@ -127,9 +117,8 @@ class KomselController extends Controller
             }
         }
         
-        // [FIX] Filter dropdown komsel jika bukan Super Admin
         $komselsForDropdown = $komselsApi;
-        if (!$isSuperAdmin) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds)) {
             $komselsForDropdown = $komselsApi->whereIn('id', $leaderKomselIds);
         }
 
@@ -141,18 +130,9 @@ class KomselController extends Controller
 
     /**
      * [PLACEHOLDER] Menetapkan komsel.
-     * Ini harus dihubungkan ke endpoint API baru di Aplikasi Lama.
      */
     public function assignKomsel(Request $request, $userId)
     {
-        // TODO: Implementasi panggilan API ke Aplikasi Lama
-        // $response = $this->apiService->assignKomselToUser($userId, $request->komsel_id);
-        // if ($response) {
-        //     Cache::forget(self::CACHE_KEY['jemaat_list']); 
-        //     Cache::forget(self::CACHE_KEY['leader_list']); 
-        //     return back()->with('success', 'Komsel berhasil ditetapkan!');
-        // }
-        
         return back()->with('error', 'Fungsi "Assign Komsel" belum terhubung ke API lama.');
     }
 
@@ -170,11 +150,10 @@ class KomselController extends Controller
             'status' => 'required|in:Menunggu,Berlangsung,Selesai,Gagal',
         ]);
         
-        // [SECURITY FIX] Pastikan Leader tidak membuat jadwal untuk komsel lain
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
         
-        if (!$isSuperAdmin && !in_array($validated['komsel_id'], $leaderKomselIds)) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds) && !in_array($validated['komsel_id'], $leaderKomselIds)) {
             return redirect()->route('jadwal')->with('error', 'Anda tidak berwenang membuat jadwal untuk komsel ini.');
         }
 
@@ -193,14 +172,13 @@ class KomselController extends Controller
             'time' => 'required|date_format:H:i',
             'location' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'required|in:Menunggu,Berlanglang,Selesai,Gagal',
+            'status' => 'required|in:Menunggu,Berlangsung,Selesai,Gagal',
         ]);
 
-        // [SECURITY FIX] Pastikan Leader tidak mengedit jadwal komsel lain
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
         
-        if (!$isSuperAdmin && !in_array($schedule->komsel_id, $leaderKomselIds)) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds) && !in_array($schedule->komsel_id, $leaderKomselIds)) {
              return redirect()->route('jadwal')->with('error', 'Anda tidak berwenang mengubah jadwal ini.');
         }
 
@@ -213,11 +191,10 @@ class KomselController extends Controller
      */
     public function destroyJadwal(Request $request, Schedule $schedule)
     {
-        // [SECURITY FIX] Pastikan Leader tidak menghapus jadwal komsel lain
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
         
-        if (!$isSuperAdmin && !in_array($schedule->komsel_id, $leaderKomselIds)) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds) && !in_array($schedule->komsel_id, $leaderKomselIds)) {
              return redirect()->route('jadwal')->with('error', 'Anda tidak berwenang menghapus jadwal ini.');
         }
 
@@ -230,27 +207,26 @@ class KomselController extends Controller
 
     /**
      * Mengambil user untuk Komsel dari API
-     * (Logika API - Sudah Benar)
      */
     public function getUsersForKomsel(Request $request, $komselId) 
     {
-        // [SECURITY FIX] Pastikan Leader hanya mengambil data dari komselnya
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
 
-        if (!$isSuperAdmin && !in_array($komselId, $leaderKomselIds)) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds) && !in_array($komselId, $leaderKomselIds)) {
             return response()->json(['error' => 'Tidak diizinkan'], 403);
         }
 
-        $admins = Cache::remember(self::CACHE_KEY['leader_list'], self::CACHE_TTL, function () {
+        // [FIX] Bungkus hasil Cache::remember dengan collect()
+        $admins = collect(Cache::remember(self::CACHE_KEY['leader_list'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllLeaders();
-            return $data ? collect($data)->filter() : collect();
-        });
+            return $data ? $data : [];
+        }));
         
-        $jemaat = Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, function () {
+        $jemaat = collect(Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllJemaat();
-            return $data ? collect($data)->filter() : collect();
-        });
+            return $data ? $data : [];
+        }));
 
         $allUsers = $admins->concat($jemaat);
         
@@ -271,27 +247,26 @@ class KomselController extends Controller
 
     /**
      * Mengambil data absensi
-     * (Logika LOKAL + API - Sudah Benar)
      */
     public function getAttendance(Request $request, Schedule $schedule)
     {
-        // [SECURITY FIX] Pastikan Leader hanya mengambil data dari komselnya
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
 
-        if (!$isSuperAdmin && !in_array($schedule->komsel_id, $leaderKomselIds)) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds) && !in_array($schedule->komsel_id, $leaderKomselIds)) {
             return response()->json(['error' => 'Tidak diizinkan'], 403);
         }
 
-        $jemaatList = Cache::remember(self::CACHE_KEY['jemaat_map'], self::CACHE_TTL, function () {
+        // [FIX] Bungkus hasil Cache::remember dengan collect()
+        $jemaatList = collect(Cache::remember(self::CACHE_KEY['jemaat_map'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllJemaat();
-            return $data ? collect($data)->filter()->keyBy('id') : collect();
-        });
+            return $data ? collect($data)->filter()->keyBy('id')->all() : [];
+        }));
         
-        $adminList = Cache::remember(self::CACHE_KEY['leader_map'], self::CACHE_TTL, function () {
+        $adminList = collect(Cache::remember(self::CACHE_KEY['leader_map'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllLeaders();
-            return $data ? collect($data)->filter()->keyBy('id') : collect();
-        });
+            return $data ? collect($data)->filter()->keyBy('id')->all() : [];
+        }));
         
         $allApiUsers = $adminList->union($jemaatList);
 
@@ -313,15 +288,14 @@ class KomselController extends Controller
     }
 
     /**
-     * Menyimpan absensi (Logika LOKAL - Sudah Benar)
+     * Menyimpan absensi
      */
     public function storeAttendance(Request $request, Schedule $schedule)
     {
-        // [SECURITY FIX] Pastikan Leader hanya menyimpan data ke komselnya
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
 
-        if (!$isSuperAdmin && !in_array($schedule->komsel_id, $leaderKomselIds)) {
+        if (!$isSuperAdmin && !empty($leaderKomselIds) && !in_array($schedule->komsel_id, $leaderKomselIds)) {
             return response()->json(['error' => 'Tidak diizinkan'], 403);
         }
 

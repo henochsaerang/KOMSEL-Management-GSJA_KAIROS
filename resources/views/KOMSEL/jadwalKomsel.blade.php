@@ -3,510 +3,832 @@
 @section('title', 'Jadwal Ibadah KOMSEL')
 
 @push('styles')
-{{-- CSS KHUSUS HANYA UNTUK HALAMAN INI --}}
 <style>
-    /* Style umum */
-    .table { border-color: var(--border-color); }
-    .table th { color: var(--bs-body-color); font-weight: 600; }
-    .table td { color: var(--text-secondary); }
-    .table-hover > tbody > tr:hover > * { background-color: var(--hover-bg); color: var(--bs-body-color); }
-    .modal-content { background-color: var(--element-bg); border-color: var(--border-color); }
+    /* === LAYOUT & BACKGROUND === */
+    body { background-color: var(--bs-body-bg); }
 
-    /* Style untuk filter animasi */
-    .filter-nav-container { position: relative; display: inline-flex; background-color: var(--hover-bg); border-radius: 0.85rem; padding: 5px; box-shadow: var(--shadow); }
-    .filter-nav-btn { border: none; background: transparent; color: var(--text-secondary); font-weight: 500; padding: 8px 20px; cursor: pointer; position: relative; z-index: 1; transition: color 0.3s ease, padding 0.3s ease, font-size 0.3s ease; }
+    /* === MODERN SEARCH & FILTER === */
+    .top-toolbar {
+        background: transparent;
+        padding-bottom: 1.5rem;
+    }
+    
+    .search-wrapper {
+        background: var(--element-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.5rem 1rem;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.2s ease;
+        width: 100%;
+        max-width: 320px;
+        display: flex;
+        align-items: center;
+    }
+    .search-wrapper input {
+        color: var(--bs-body-color);
+    }
+    .search-wrapper i {
+        color: var(--text-secondary);
+    }
+    .search-wrapper:focus-within {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    }
+    
+    /* === FILTER TABS === */
+    .filter-nav-container {
+        background-color: var(--hover-bg);
+        padding: 4px;
+        border-radius: 12px;
+        display: inline-flex;
+        position: relative;
+        border: 1px solid var(--border-color);
+    }
+    .filter-nav-btn {
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 6px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        z-index: 2;
+        position: relative;
+        transition: color 0.2s ease;
+    }
     .filter-nav-btn.active { color: #fff; }
-    .filter-slider { position: absolute; top: 5px; left: 5px; height: calc(100% - 10px); background-color: var(--primary-color); border-radius: 0.75rem; z-index: 0; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+    .filter-slider {
+        position: absolute;
+        top: 4px; bottom: 4px; left: 4px;
+        background: var(--primary-color);
+        border-radius: 8px;
+        z-index: 1;
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), width 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* === SCHEDULE CARD LIST STYLE === */
+    .schedule-card {
+        background: var(--element-bg);
+        border-radius: 16px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .schedule-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--border-color);
+    }
+
+    /* Time Box */
+    .time-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--element-bg-subtle);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        min-width: 90px;
+        border: 1px solid var(--border-color);
+    }
+    .time-hour { font-size: 1.25rem; font-weight: 800; color: var(--bs-body-color); line-height: 1; }
+    .time-day { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-top: 4px; letter-spacing: 0.5px; }
+
+    /* Info Section */
+    .info-section { flex: 1; min-width: 200px; }
+    .komsel-title { font-size: 1.1rem; font-weight: 700; color: var(--bs-body-color); margin-bottom: 0.25rem; }
+    .location-badge {
+        display: inline-flex; align-items: center;
+        font-size: 0.85rem; color: var(--text-secondary);
+        background: var(--element-bg-subtle);
+        padding: 4px 10px; border-radius: 6px;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Status Badge */
+    .status-dot-badge {
+        display: inline-flex; align-items: center;
+        padding: 6px 12px; border-radius: 9999px;
+        font-size: 0.75rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .status-dot-badge::before {
+        content: ''; display: inline-block;
+        width: 8px; height: 8px; border-radius: 50%;
+        margin-right: 8px;
+        background-color: currentColor;
+    }
+    /* Colors remain mostly same but use rgba for better blend */
+    .status-Menunggu { background: rgba(255, 237, 213, 0.2); color: #ea580c; border: 1px solid rgba(255, 237, 213, 0.5); }
+    .status-Berlangsung { background: rgba(219, 234, 254, 0.2); color: #2563eb; border: 1px solid rgba(219, 234, 254, 0.5); }
+    .status-Selesai { background: rgba(220, 252, 231, 0.2); color: #15803d; border: 1px solid rgba(220, 252, 231, 0.5); }
+    .status-Gagal { background: rgba(254, 226, 226, 0.2); color: #b91c1c; border: 1px solid rgba(254, 226, 226, 0.5); }
+
+    /* Actions */
+    .action-group { display: flex; gap: 0.5rem; }
+    .btn-icon {
+        width: 36px; height: 36px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 10px; 
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary); 
+        background: var(--element-bg);
+        transition: all 0.2s;
+    }
+    .btn-icon:hover { background: var(--hover-bg); border-color: var(--text-secondary); color: var(--bs-body-color); }
+    .btn-icon-danger:hover { background: rgba(254, 226, 226, 0.5); border-color: #fecaca; color: #ef4444; }
     
-    @media (max-width: 576px) {
-        .filter-nav-container { padding: 4px; }
-        .filter-nav-btn { padding: 6px 12px; font-size: 0.875rem; }
-        .filter-slider { top: 4px; left: 4px; height: calc(100% - 8px); }
+    .btn-action-primary {
+        background: var(--primary-color); color: white; border: none;
+        padding: 0.5rem 1rem; border-radius: 10px;
+        font-weight: 600; font-size: 0.9rem;
+        display: flex; align-items: center; gap: 0.5rem;
+    }
+    .btn-action-primary:hover { background: var(--primary-hover); color: white; transform: translateY(-1px); }
+
+    /* === CREATE BUTTON === */
+    .btn-create-jadwal {
+        background: linear-gradient(135deg, var(--primary-color), #4f46e5);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        display: flex; align-items: center; gap: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+    }
+    .btn-create-jadwal:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+        color: white;
+    }
+    .btn-create-icon {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%; width: 24px; height: 24px;
+        display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+    }
+
+    /* === MODAL & FORM DARK MODE FIXES === */
+    .modal-content {
+        background-color: var(--element-bg);
+        border: 1px solid var(--border-color);
+        color: var(--bs-body-color);
+    }
+    .modal-header, .modal-footer {
+        border-color: var(--border-color);
+    }
+    .modal-title { color: var(--bs-body-color); }
+    .btn-close {
+        /* Adjust close button filter for dark mode if needed via Bootstrap logic or filter invert */
     }
     
-    .remove-anggota-btn {
-        padding: 0;
-        line-height: 1;
+    /* Input Fields Override */
+    .form-control, .form-select {
+        background-color: var(--input-bg);
+        border: 1px solid var(--border-color);
+        color: var(--bs-body-color);
+        border-radius: 0.75rem;
+        padding: 0.6rem 1rem;
     }
-    .guest-badge { font-size: 0.7em; vertical-align: middle; margin-left: 5px; }
+    .form-control:focus, .form-select:focus {
+        background-color: var(--input-bg);
+        color: var(--bs-body-color);
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    }
+    .form-control::placeholder { color: var(--text-secondary); opacity: 0.6; }
+    
+    .form-label { color: var(--text-secondary); font-size: 0.85rem; }
+
+    /* List Group in Modal */
+    .list-group-item {
+        background-color: var(--element-bg);
+        border-bottom: 1px solid var(--border-color);
+        color: var(--bs-body-color);
+    }
+
+    @media (max-width: 768px) {
+        .schedule-card { flex-direction: column; align-items: flex-start; }
+        .time-box { width: 100%; flex-direction: row; justify-content: space-between; min-height: auto; padding: 0.75rem; }
+        .time-hour { font-size: 1.1rem; }
+        .action-group { width: 100%; justify-content: flex-end; margin-top: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem; }
+        .filter-wrapper { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; width: 100%; }
+    }
 </style>
 @endpush
 
-
 @section('konten')
 
-<div class="d-flex justify-content-center mb-4">
-    <div class="filter-nav-container">
-        <div class="filter-slider"></div>
-        <button type="button" class="filter-nav-btn active" data-filter="all">Semua</button>
-        <button type="button" class="filter-nav-btn" data-filter="Menunggu">Menunggu</button>
-        <button type="button" class="filter-nav-btn" data-filter="Berlangsung">Berlangsung</button>
-        <button type="button" class="filter-nav-btn" data-filter="Selesai">Selesai</button>
-        <button type="button" class="filter-nav-btn" data-filter="Gagal">Gagal</button>
-    </div>
-</div>
-
-{{-- KONTEN UTAMA: KARTU, TABEL, DAN MODAL --}}
-<div class="card">
-    <div class="card-body p-4">
-        
-        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-           <h5 class="card-title fw-bold mb-0">Jadwal Ibadah KOMSEL</h5>
-           <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createJadwalModal">
-               <i class="bi bi-plus-circle-fill me-2"></i>Buat Jadwal Baru
-           </button>
+<div class="container-fluid px-0 pb-5">
+    
+    {{-- HEADER & TOOLBAR --}}
+    <div class="top-toolbar d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-4 mb-2">
+        <div>
+            <h3 class="fw-bold text-body mb-1">Jadwal Ibadah</h3>
+            <p class="text-secondary mb-0 small">Kelola agenda ibadah komunitas sel</p>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr class="border-bottom">
-                        <th scope="col">No</th>
-                        <th scope="col">Nama KOMSEL</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Jadwal</th>
-                        <th scope="col">Lokasi</th>
-                        <th scope="col" class="text-end">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($schedules as $schedule)
-                    <tr data-status="{{ $schedule->status }}">
-                        <td class="fw-bold">{{ $loop->iteration }}</td>
-                        
-                        {{-- [FIX 1] Gunakan properti 'komsel_name' yang disiapkan di controller --}}
-                        <td>{{ $schedule->komsel_name ?? 'N/A' }}</td>
-                        
-                        <td>
-                            <span @class([
-                                'badge',
-                                'text-bg-warning' => $schedule->status == 'Menunggu',
-                                'text-bg-info' => $schedule->status == 'Berlangsung',
-                                'text-bg-success' => $schedule->status == 'Selesai',
-                                'text-bg-danger' => $schedule->status == 'Gagal',
-                                'text-bg-secondary' => !in_array($schedule->status, ['Menunggu', 'Berlangsung', 'Selesai', 'Gagal']),
-                            ])>
-                                {{ $schedule->status }}
-                            </span>
-                        </td>
-                        <td>{{ $schedule->day_of_week }}, {{ \Carbon\Carbon::parse($schedule->time)->format('H:i') }}</td>
-                        <td>{{ $schedule->location }}</td>
-                        <td class="text-end">
-                            <div class="btn-group">
-                                @if($schedule->status == 'Berlangsung')
-                                    {{-- [FIX 2] Gunakan 'komsel_name' di data-atribute --}}
-                                    <button type="button" class="btn btn-sm btn-success" title="Input Absensi" data-bs-toggle="modal" data-bs-target="#absensiModal" data-schedule-id="{{ $schedule->id }}" data-komsel-id="{{ $schedule->komsel_id }}" data-komsel-nama="{{ $schedule->komsel_name ?? '' }}"><i class="bi bi-clipboard2-check-fill"></i></button>
-                                @elseif($schedule->status == 'Selesai')
-                                    {{-- [FIX 3] Gunakan 'komsel_name' di data-atribute --}}
-                                    <button type="button" class="btn btn-sm btn-info" title="Info Absensi" data-bs-toggle="modal" data-bs-target="#infoAbsensiModal" data-schedule-id="{{ $schedule->id }}" data-komsel-nama="{{ $schedule->komsel_name ?? '' }}"><i class="bi bi-info-circle-fill"></i></button>
-                                @else
-                                    <button type="button" class="btn btn-sm btn-outline-secondary disabled" title="Absensi hanya untuk jadwal yang berlangsung"><i class="bi bi-clipboard2-check-fill"></i></button>
-                                @endif
-                                
-                                {{-- [FIX 4] Gunakan 'komsel_name' di data-atribute --}}
-                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Ubah Jadwal" data-bs-toggle="modal" data-bs-target="#editJadwalModal" data-id="{{ $schedule->id }}" data-komsel-id="{{ $schedule->komsel_id }}" data-komsel-nama="{{ $schedule->komsel_name ?? '' }}" data-day="{{ $schedule->day_of_week }}" data-time="{{ $schedule->time }}" data-location="{{ $schedule->location }}" data-description="{{ $schedule->description }}" data-status="{{ $schedule->status }}"><i class="bi bi-pencil-fill"></i></button>
-                                
-                                <form action="{{ route('jadwal.destroy', $schedule->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus jadwal ini?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus Jadwal"><i class="bi bi-trash-fill"></i></button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr id="empty-row">
-                        <td colspan="6" class="text-center text-secondary py-4">Belum ada jadwal yang dibuat.</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+            {{-- SEARCH BAR --}}
+            <div class="search-wrapper d-flex align-items-center">
+                <i class="bi bi-search me-2"></i>
+                <input type="text" class="form-control border-0 shadow-none p-0 bg-transparent" 
+                       id="scheduleSearchInput" placeholder="Cari komsel, lokasi..." autocomplete="off">
+            </div>
+
+            {{-- CREATE BUTTON --}}
+            <button type="button" class="btn-create-jadwal" data-bs-toggle="modal" data-bs-target="#createJadwalModal">
+                <div class="btn-create-icon">
+                    <i class="bi bi-plus-lg"></i>
+                </div>
+                <span>Buat Jadwal</span>
+            </button>
+        </div>
+    </div>
+
+    {{-- FILTER NAVIGATION --}}
+    <div class="mb-4 overflow-auto pb-2">
+        <div class="filter-nav-container">
+            <div class="filter-slider"></div>
+            <button type="button" class="filter-nav-btn active" data-filter="all">Semua</button>
+            <button type="button" class="filter-nav-btn" data-filter="Menunggu">Menunggu</button>
+            <button type="button" class="filter-nav-btn" data-filter="Berlangsung">Berlangsung</button>
+            <button type="button" class="filter-nav-btn" data-filter="Selesai">Selesai</button>
+            <button type="button" class="filter-nav-btn" data-filter="Gagal">Gagal</button>
+        </div>
+    </div>
+
+    {{-- SCHEDULE LIST --}}
+    <div id="scheduleListContainer">
+        @forelse ($schedules as $schedule)
+        <div class="schedule-card" data-status="{{ $schedule->status }}">
+            {{-- Time Box --}}
+            <div class="time-box">
+                <span class="time-hour">{{ \Carbon\Carbon::parse($schedule->time)->format('H:i') }}</span>
+                <span class="time-day">{{ $schedule->day_of_week }}</span>
+            </div>
+
+            {{-- Info Section --}}
+            <div class="info-section">
+                <div class="d-flex align-items-start justify-content-between mb-1">
+                    <h5 class="komsel-title">{{ $schedule->komsel_name ?? 'Nama Komsel Tidak Ada' }}</h5>
+                </div>
+                
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                    <div class="location-badge">
+                        <i class="bi bi-geo-alt-fill text-danger me-1 opacity-75"></i> {{ $schedule->location }}
+                    </div>
+                    <div class="status-dot-badge status-{{ $schedule->status }}">
+                        {{ $schedule->status }}
+                    </div>
+                </div>
+
+                @if($schedule->description)
+                    <p class="text-secondary small mb-0 text-truncate" style="max-width: 400px;">
+                        <i class="bi bi-chat-square-text me-1"></i> {{ $schedule->description }}
+                    </p>
+                @endif
+            </div>
+
+            {{-- Action Group --}}
+            <div class="action-group">
+                @if($schedule->status == 'Berlangsung')
+                    <button type="button" class="btn-action-primary shadow-sm" 
+                            title="Input Absensi" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#absensiModal" 
+                            data-schedule-id="{{ $schedule->id }}" 
+                            data-komsel-id="{{ $schedule->komsel_id }}" 
+                            data-komsel-nama="{{ $schedule->komsel_name ?? '' }}">
+                        <i class="bi bi-clipboard-check"></i> Absen
+                    </button>
+                @elseif($schedule->status == 'Selesai')
+                    <button type="button" class="btn btn-icon text-primary border-primary bg-primary bg-opacity-10" 
+                            title="Lihat Laporan" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#infoAbsensiModal" 
+                            data-schedule-id="{{ $schedule->id }}" 
+                            data-komsel-nama="{{ $schedule->komsel_name ?? '' }}">
+                        <i class="bi bi-file-earmark-bar-graph-fill"></i>
+                    </button>
+                @endif
+                
+                <button type="button" class="btn btn-icon" title="Edit" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#editJadwalModal" 
+                        data-id="{{ $schedule->id }}" 
+                        data-komsel-id="{{ $schedule->komsel_id }}" 
+                        data-komsel-nama="{{ $schedule->komsel_name ?? '' }}" 
+                        data-day="{{ $schedule->day_of_week }}" 
+                        data-time="{{ $schedule->time }}" 
+                        data-location="{{ $schedule->location }}" 
+                        data-description="{{ $schedule->description }}" 
+                        data-status="{{ $schedule->status }}">
+                    <i class="bi bi-pencil-square"></i>
+                </button>
+                
+                <form action="{{ route('jadwal.destroy', $schedule->id) }}" method="POST" onsubmit="return confirm('Hapus jadwal ini?');">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="btn btn-icon btn-icon-danger" title="Hapus">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        @empty
+        <div id="empty-row" class="text-center py-5">
+            <div class="d-flex flex-column align-items-center opacity-50">
+                {{-- [FIX] Lingkaran Ikon Bulat Sempurna --}}
+                <div class="rounded-circle shadow-sm mb-3 d-inline-flex align-items-center justify-content-center" 
+                     style="background-color: var(--element-bg)!important; width: 80px; height: 80px;">
+                    <i class="bi bi-calendar-x display-4 text-secondary"></i>
+                </div>
+                <h5 class="fw-bold text-secondary">Tidak ada jadwal</h5>
+                <p class="text-secondary">Belum ada jadwal ibadah yang dibuat.</p>
+            </div>
+        </div>
+        @endforelse
+        
+        {{-- Empty State --}}
+        <div id="no-results" class="text-center py-5 d-none">
+            <p class="text-muted fst-italic text-secondary">Tidak ditemukan jadwal yang sesuai.</p>
         </div>
     </div>
 </div>
 
 {{-- Modal Absensi --}}
-<div class="modal fade" id="absensiModal" tabindex="-1" aria-labelledby="absensiModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h1 class="modal-title fs-5 fw-bold" id="absensiModalLabel">Form Absensi</h1><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-            <div class="modal-body">
+<div class="modal fade" id="absensiModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark">Form Absensi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
                 <form id="absensiForm">
                     <input type="hidden" id="absensiScheduleId">
-                    <div class="mb-3"><label for="anggotaSearchInput" class="form-label">Cari Anggota</label><input type="text" id="anggotaSearchInput" class="form-control mb-2" placeholder="Ketik untuk mencari...">
-                        <label for="anggotaDropdown" class="form-label fw-semibold">Tambahkan Anggota Terdaftar</label><div class="input-group"><select class="form-select" id="anggotaDropdown" size="5"><option>Memuat...</option></select><button class="btn btn-outline-primary" type="button" id="addAnggotaBtn"><i class="bi bi-plus-lg"></i> Tambah</button></div>
+                    <div class="row g-4">
+                        <div class="col-md-6 border-end pe-md-4" style="border-color: var(--border-color)!important;">
+                            <h6 class="fw-bold text-primary mb-3 text-uppercase small letter-spacing-1">Input Peserta</h6>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-secondary">Cari Anggota</label>
+                                <input type="text" id="anggotaSearchInput" class="form-control mb-2" placeholder="Ketik nama...">
+                                <div class="input-group">
+                                    <select class="form-select" id="anggotaDropdown" size="4">
+                                        <option disabled>Memuat data...</option>
+                                    </select>
+                                    <button class="btn btn-primary" type="button" id="addAnggotaBtn">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold text-secondary">Tamu / Simpatisan</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="guestNameInput" placeholder="Nama Tamu...">
+                                    <button class="btn btn-outline-success border-0 bg-success bg-opacity-10 text-success fw-bold" type="button" id="addGuestBtn">
+                                        Tambah
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 ps-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-primary mb-0 text-uppercase small letter-spacing-1">Kehadiran</h6>
+                                <span class="badge bg-primary bg-opacity-10 text-primary" id="countDisplay">0 Orang</span>
+                            </div>
+                            <div id="daftarHadirContainer" class="list-group list-group-flush border rounded-3 overflow-auto custom-scrollbar" style="max-height: 300px; background: var(--element-bg-subtle); border-color: var(--border-color)!important;">
+                                {{-- Item will be injected here --}}
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3"><label for="guestNameInput" class="form-label fw-semibold">Tambahkan Tamu (Partisipan)</label><div class="input-group"><input type="text" class="form-control" id="guestNameInput" placeholder="Masukkan nama tamu..."><button class="btn btn-outline-success" type="button" id="addGuestBtn"><i class="bi bi-person-plus-fill"></i> Tambah Tamu</button></div></div><hr>
-                    <div class="mb-3"><label class="form-label text-secondary small">Daftar Hadir</label><div id="daftarHadirContainer" class="list-group"></div></div>
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button><button type="submit" form="absensiForm" class="btn btn-success">Simpan Absensi</button></div>
+            <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                <button type="button" class="btn btn-light fw-medium" style="background: var(--hover-bg); color: var(--bs-body-color); border-color: var(--border-color);" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" form="absensiForm" class="btn btn-success fw-bold px-4 rounded-pill shadow-sm">Simpan Data</button>
+            </div>
         </div>
     </div>
 </div>
 
 {{-- Modal Info Absensi --}}
-<div class="modal fade" id="infoAbsensiModal" tabindex="-1" aria-labelledby="infoAbsensiModalLabel" aria-hidden="true">
+<div class="modal fade" id="infoAbsensiModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h1 class="modal-title fs-5 fw-bold" id="infoAbsensiModalLabel">Laporan Absensi</h1><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-            <div class="modal-body"><p class="text-secondary">Total Kehadiran: <strong id="totalKehadiran">0</strong></p><div id="infoDaftarHadirContainer" class="list-group"></div></div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button></div>
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold">Laporan Kehadiran</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="bg-primary bg-opacity-10 p-4 text-center">
+                    <h1 class="display-3 fw-bold text-primary mb-0" id="totalKehadiran">0</h1>
+                    <small class="text-muted text-uppercase fw-bold letter-spacing-1">Total Hadir</small>
+                </div>
+                <div id="infoDaftarHadirContainer" class="list-group list-group-flush px-3 pb-3 pt-2 custom-scrollbar" style="max-height: 350px; overflow-y: auto;">
+                    {{-- List injected here --}}
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Tutup</button>
+            </div>
         </div>
     </div>
 </div>
 
 {{-- Modal Create Jadwal --}}
-<div class="modal fade" id="createJadwalModal" tabindex="-1" aria-labelledby="createJadwalModalLabel" aria-hidden="true">
+<div class="modal fade" id="createJadwalModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h1 class="modal-title fs-5" id="createJadwalModalLabel">Buat Jadwal Baru</h1><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-            <div class="modal-body">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Buat Jadwal Baru</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-4">
                 <form id="createForm" action="{{ route('jadwal.store') }}" method="POST">
                     @csrf
-                    <div class="mb-3"><label for="createKomsel" class="form-label">Nama KOMSEL</label>
-                        <select class="form-select" id="createKomsel" name="komsel_id" required>
-                            <option value="" disabled selected>Pilih KOMSEL</option>
-                            {{-- [FIX 5] Gunakan sintaks ARRAY dan key 'nama' --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Komunitas Sel</label>
+                        <select class="form-select" name="komsel_id" required>
+                            <option value="" disabled selected>Pilih KOMSEL...</option>
                             @foreach ($komsels as $komsel)
                                 <option value="{{ $komsel['id'] }}">{{ $komsel['nama'] }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="mb-3"><label for="createDayOfWeek" class="form-label">Hari Ibadah</label><select class="form-select" id="createDayOfWeek" name="day_of_week" required><option value="">Pilih Hari</option><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option><option value="Minggu">Minggu</option></select></div>
-                    <div class="mb-3"><label for="createTime" class="form-label">Waktu Ibadah</label><input type="time" class="form-control" id="createTime" name="time" required></div>
-                    <div class="mb-3"><label for="createLokasi" class="form-label">Lokasi</label><input type="text" class="form-control" id="createLokasi" name="location" placeholder="Contoh: Rumah Bpk. Budi" required></div>
-                    <div class="mb-3"><label for="createDescription" class="form-label">Deskripsi (Opsional)</label><textarea class="form-control" id="createDescription" name="description" rows="3"></textarea></div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-uppercase">Hari</label>
+                            <select class="form-select" name="day_of_week" required>
+                                <option value="">Pilih...</option>
+                                @foreach(['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] as $day)
+                                    <option value="{{ $day }}">{{ $day }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-uppercase">Jam</label>
+                            <input type="time" class="form-control" name="time" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Lokasi</label>
+                        <input type="text" class="form-control" name="location" placeholder="Contoh: Rumah Bpk. Budi" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Catatan (Opsional)</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
                     <input type="hidden" name="status" value="Menunggu">
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" form="createForm" class="btn btn-primary">Simpan Jadwal</button></div>
+            <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                <button type="button" class="btn btn-light fw-medium" style="background: var(--hover-bg); color: var(--bs-body-color); border-color: var(--border-color);" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" form="createForm" class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm">Simpan</button>
+            </div>
         </div>
     </div>
 </div>
 
 {{-- Modal Edit Jadwal --}}
-<div class="modal fade" id="editJadwalModal" tabindex="-1" aria-labelledby="editJadwalModalLabel" aria-hidden="true">
+<div class="modal fade" id="editJadwalModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h1 class="modal-title fs-5" id="editJadwalModalLabel">Edit Jadwal KOMSEL</h1><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-            <div class="modal-body">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Edit Jadwal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-4">
                 <form id="editForm" method="POST">
-                    @csrf
-                    @method('PATCH')
-                    <div class="mb-3"><label for="editKomsel" class="form-label">Nama KOMSEL</label>
+                    @csrf @method('PATCH')
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Komunitas Sel</label>
                         <select class="form-select" id="editKomsel" name="komsel_id" required>
-                            <option value="">Pilih KOMSEL</option>
-                            {{-- [FIX 6] Gunakan sintaks ARRAY dan key 'nama' --}}
+                            <option value="">Pilih KOMSEL...</option>
                             @foreach ($komsels as $komsel)
                                 <option value="{{ $komsel['id'] }}">{{ $komsel['nama'] }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="mb-3"><label for="editDayOfWeek" class="form-label">Hari Ibadah</label><select class="form-select" id="editDayOfWeek" name="day_of_week" required><option value="">Pilih Hari</option><option value="Senin">Senin</option><option value="Selasa">Selasa</option><option value="Rabu">Rabu</option><option value="Kamis">Kamis</option><option value="Jumat">Jumat</option><option value="Sabtu">Sabtu</option><option value="Minggu">Minggu</option></select></div>
-                    <div class="mb-3"><label for="editTime" class="form-label">Waktu Ibadah</label><input type="time" class="form-control" id="editTime" name="time" required></div>
-                    <div class="mb-3"><label for="editLokasi" class="form-label">Lokasi</label><input type="text" class="form-control" id="editLokasi" name="location" required></div>
-                    <div class="mb-3"><label for="editDescription" class="form-label">Deskripsi (Opsional)</label><textarea class="form-control" id="editDescription" name="description" rows="3"></textarea></div>
-                    <div class="mb-3"><label for="editStatus" class="form-label">Status</label><select class="form-select" id="editStatus" name="status" required><option value="Menunggu">Menunggu</option><option value="Berlangsung">Berlangsung</option><option value="Selesai">Selesai</option><option value="Gagal">Gagal</option></select></div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-uppercase">Hari</label>
+                            <select class="form-select" id="editDayOfWeek" name="day_of_week" required>
+                                @foreach(['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'] as $day)
+                                    <option value="{{ $day }}">{{ $day }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-uppercase">Jam</label>
+                            <input type="time" class="form-control" id="editTime" name="time" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Lokasi</label>
+                        <input type="text" class="form-control" id="editLokasi" name="location" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Status</label>
+                        <select class="form-select" id="editStatus" name="status" required>
+                            <option value="Menunggu">Menunggu</option>
+                            <option value="Berlangsung">Berlangsung</option>
+                            <option value="Selesai">Selesai</option>
+                            <option value="Gagal">Gagal</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase">Catatan</label>
+                        <textarea class="form-control" id="editDescription" name="description" rows="2"></textarea>
+                    </div>
                 </form>
             </div>
-            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button><button type="submit" form="editForm" class="btn btn-primary">Simpan Perubahan</button></div>
+            <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                <button type="button" class="btn btn-light fw-medium" style="background: var(--hover-bg); color: var(--bs-body-color); border-color: var(--border-color);" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" form="editForm" class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm">Simpan</button>
+            </div>
         </div>
     </div>
 </div>
 @endsection
 
 @push('scripts')
-{{-- [PERBAIKAN]: KODE JAVASCRIPT LENGKAP DENGAN SEMUA FUNGSI --}}
+{{-- ... javascript ... --}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- LOGIKA MODAL ABSENSI ---
-    const absensiModalEl = document.getElementById('absensiModal');
-    if (absensiModalEl) {
-        const bsAbsensiModal = new bootstrap.Modal(absensiModalEl);
-        const anggotaDropdown = absensiModalEl.querySelector('#anggotaDropdown');
-        const addAnggotaBtn = absensiModalEl.querySelector('#addAnggotaBtn');
-        const guestNameInput = absensiModalEl.querySelector('#guestNameInput');
-        const addGuestBtn = absensiModalEl.querySelector('#addGuestBtn');
-        const daftarHadirContainer = absensiModalEl.querySelector('#daftarHadirContainer');
-        const absensiForm = absensiModalEl.querySelector('#absensiForm');
-        const scheduleIdInput = absensiModalEl.querySelector('#absensiScheduleId');
-        const anggotaSearchInput = absensiModalEl.querySelector('#anggotaSearchInput');
+    // --- FILTER & SEARCH LOGIC ---
+    const filterBtns = document.querySelectorAll('.filter-nav-btn');
+    const slider = document.querySelector('.filter-slider');
+    const searchInput = document.getElementById('scheduleSearchInput');
+    const cards = document.querySelectorAll('.schedule-card');
+    const noResults = document.getElementById('no-results');
+    const emptyRow = document.getElementById('empty-row');
 
-        /**
-         * Helper untuk menambah orang ke daftar hadir di UI.
-         */
-        const addPersonToList = (id, name, isGuest = false) => {
-            const uniqueId = isGuest ? `guest-${name.replace(/\s+/g, '-')}` : `user-${id}`;
-            if (daftarHadirContainer.querySelector(`[data-unique-id="${uniqueId}"]`)) return;
+    const moveSlider = (btn) => {
+        const rect = btn.getBoundingClientRect();
+        const parentRect = btn.parentElement.getBoundingClientRect();
+        slider.style.width = `${rect.width}px`;
+        slider.style.transform = `translateX(${rect.left - parentRect.left}px)`;
+    };
 
-            const listItem = document.createElement('div');
-            listItem.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
-            listItem.setAttribute('data-unique-id', uniqueId);
-            listItem.setAttribute('data-id', id); 
-            listItem.setAttribute('data-is-guest', isGuest);
-            listItem.innerHTML = `<span>${name} ${isGuest ? '<span class="badge text-bg-secondary guest-badge">Tamu</span>' : ''}</span><button type="button" class="btn btn-link text-danger btn-sm p-0 remove-anggota-btn" title="Hapus"><i class="bi bi-x-circle-fill"></i></button>`;
-            daftarHadirContainer.appendChild(listItem);
+    const activeBtn = document.querySelector('.filter-nav-btn.active');
+    if(activeBtn) setTimeout(() => moveSlider(activeBtn), 50);
+
+    function applyFilters() {
+        const activeBtn = document.querySelector('.filter-nav-btn.active');
+        const statusFilter = activeBtn ? activeBtn.getAttribute('data-filter') : 'all';
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        let count = 0;
+
+        cards.forEach(card => {
+            const status = card.getAttribute('data-status');
+            const text = card.textContent.toLowerCase(); 
+
+            const matchesStatus = (statusFilter === 'all' || status === statusFilter);
+            const matchesSearch = text.includes(searchTerm);
+
+            if (matchesStatus && matchesSearch) {
+                card.style.display = 'flex';
+                count++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Toggle Empty States
+        if (emptyRow) emptyRow.style.display = 'none'; // Always hide default empty first
+        if (noResults) noResults.style.display = 'none';
+
+        if (count === 0) {
+            // If no cards at all (and no search), show default empty
+            // If filtered to 0, show no results
+            if (cards.length === 0) {
+                if (emptyRow) emptyRow.style.display = 'block';
+            } else {
+                if (noResults) {
+                    noResults.style.display = 'block';
+                    noResults.querySelector('p').textContent = searchTerm 
+                        ? `Tidak ditemukan jadwal untuk "${searchTerm}"`
+                        : 'Tidak ada jadwal dengan status ini.';
+                }
+            }
+        }
+    }
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            moveSlider(this);
+            filterBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            applyFilters();
+        });
+    });
+
+    searchInput.addEventListener('input', applyFilters);
+    window.addEventListener('resize', () => {
+        const current = document.querySelector('.filter-nav-btn.active');
+        if(current) moveSlider(current);
+    });
+
+    // --- MODAL EDIT ---
+    const editModal = document.getElementById('editJadwalModal');
+    if(editModal) {
+        editModal.addEventListener('show.bs.modal', event => {
+            const btn = event.relatedTarget;
+            const id = btn.getAttribute('data-id');
+            editModal.querySelector('#editKomsel').value = btn.getAttribute('data-komsel-id');
+            editModal.querySelector('#editDayOfWeek').value = btn.getAttribute('data-day');
+            editModal.querySelector('#editTime').value = btn.getAttribute('data-time');
+            editModal.querySelector('#editLokasi').value = btn.getAttribute('data-location');
+            editModal.querySelector('#editStatus').value = btn.getAttribute('data-status');
+            editModal.querySelector('#editDescription').value = btn.getAttribute('data-description');
+            let url = "{{ route('jadwal.update', ':id') }}".replace(':id', id);
+            editModal.querySelector('#editForm').action = url;
+        });
+    }
+
+    // --- MODAL ABSENSI ---
+    const absensiModal = document.getElementById('absensiModal');
+    if(absensiModal) {
+        const listContainer = document.getElementById('daftarHadirContainer');
+        const dropdown = document.getElementById('anggotaDropdown');
+        const countDisplay = document.getElementById('countDisplay');
+        
+        const updateCount = () => {
+            const count = listContainer.querySelectorAll('.list-group-item').length;
+            countDisplay.textContent = `${count} Orang`;
         };
 
-        absensiModalEl.addEventListener('show.bs.modal', async function(event) {
-            const button = event.relatedTarget;
-            const scheduleId = button.getAttribute('data-schedule-id');
-            const komselId = button.getAttribute('data-komsel-id');
-            const komselNama = button.getAttribute('data-komsel-nama');
-
-            scheduleIdInput.value = scheduleId;
-            absensiModalEl.querySelector('#absensiModalLabel').textContent = `Absensi: ${komselNama}`;
+        const addToList = (id, name, isGuest) => {
+            const uid = isGuest ? `g-${name}` : `u-${id}`;
+            if(listContainer.querySelector(`[data-uid="${uid}"]`)) return;
             
-            daftarHadirContainer.innerHTML = '<p class="text-center text-secondary">Memuat...</p>';
-            anggotaDropdown.innerHTML = '<option>Memuat...</option>';
+            const div = document.createElement('div');
+            div.className = 'list-group-item border-0 border-bottom d-flex justify-content-between align-items-center bg-transparent px-2';
+            div.setAttribute('data-uid', uid);
+            div.setAttribute('data-id', id);
+            div.setAttribute('data-is-guest', isGuest);
+            div.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="bg-${isGuest ? 'secondary' : 'primary'} bg-opacity-10 text-${isGuest ? 'secondary' : 'primary'} rounded-circle p-1 me-2 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;">
+                        <i class="bi ${isGuest ? 'bi-person' : 'bi-person-fill'} small"></i>
+                    </div>
+                    <span class="fw-medium ${isGuest ? 'text-muted' : 'text-dark'}">${name}</span>
+                    ${isGuest ? '<span class="badge bg-light text-secondary border ms-2" style="font-size: 0.6rem;">TAMU</span>' : ''}
+                </div>
+                <button type="button" class="btn btn-sm text-danger remove-btn"><i class="bi bi-trash"></i></button>
+            `;
+            div.querySelector('.remove-btn').onclick = () => { div.remove(); updateCount(); };
+            listContainer.appendChild(div);
+            updateCount();
+        };
+
+        absensiModal.addEventListener('show.bs.modal', async function(e) {
+            const btn = e.relatedTarget;
+            const scheduleId = btn.getAttribute('data-schedule-id');
+            const komselId = btn.getAttribute('data-komsel-id');
+            document.getElementById('absensiScheduleId').value = scheduleId;
+            
+            listContainer.innerHTML = '<div class="p-4 text-center text-muted"><span class="spinner-border spinner-border-sm"></span> Memuat data...</div>';
+            dropdown.innerHTML = '<option disabled>Memuat anggota...</option>';
+            countDisplay.textContent = '...';
 
             try {
-                // [FIX 7] Ganti rute API komsel
-                // Rute lama: /api/komsel/{komsel}/users
-                // Rute baru dari Controller: /api/komsel/{id}/users (Contoh, sesuaikan)
-                // Berdasarkan controller, rute ini belum ada. Kita harus tambahkan.
-                // UNTUK SEMENTARA, kita asumsikan rutenya belum ada dan akan gagal.
-                // Mari kita cek KomselController... ya, rute 'api.komsel.users' di-comment.
-                
-                // [FIX SEMENTARA] - Rute getUsersForKomsel tidak ada.
-                // Mari kita ganti dengan rute yang ada
-                // ... Oh, tidak ada rute untuk get users. Ini akan gagal.
-                // Saya akan asumsikan Anda akan membuat rute ini:
-                // Route::get('/api/komsel/{komselId}/users', [KomselController::class, 'getUsersForKomsel'])->name('api.komsel.users');
-
-                const [usersResponse, attendanceResponse] = await Promise.all([
-                    fetch(`{{ url('/api/komsel') }}/${komselId}/users`), // Asumsi URL ini
-                    fetch(`{{ route('api.schedule.attendances.get', ['schedule' => ':id']) }}`.replace(':id', scheduleId))
+                const [usersRes, attendRes] = await Promise.all([
+                    fetch(`{{ url('/api/komsel') }}/${komselId}/users`), 
+                    fetch(`{{ route('api.schedule.attendances.get', ':id') }}`.replace(':id', scheduleId))
                 ]);
 
-                if (!usersResponse.ok) throw new Error('Gagal memuat anggota. (Pastikan rute API /api/komsel/{id}/users ada)');
-                if (!attendanceResponse.ok) throw new Error('Gagal memuat absensi.');
-                
-                const usersData = await usersResponse.json();
-                const attendanceData = await attendanceResponse.json();
-                const allAnggota = usersData.users;
+                if(!usersRes.ok || !attendRes.ok) throw new Error("Gagal memuat data.");
 
-                daftarHadirContainer.innerHTML = ''; 
-                anggotaDropdown.innerHTML = '<option selected disabled value="">Pilih anggota...</option>';
-                
-                allAnggota.forEach(anggota => {
-                    const option = document.createElement('option');
-                    option.value = anggota.id;
-                    option.textContent = anggota.nama;
-                    anggotaDropdown.appendChild(option);
-                    
-                    if (attendanceData.present_users.some(p => p.id === anggota.id)) {
-                        addPersonToList(anggota.id, anggota.nama, false);
-                    }
+                const usersData = await usersRes.json();
+                const attendData = await attendRes.json();
+
+                dropdown.innerHTML = '<option selected disabled value="">Pilih anggota...</option>';
+                usersData.users.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = u.nama;
+                    dropdown.appendChild(opt);
                 });
 
-                attendanceData.guests.forEach(guestName => {
-                    addPersonToList(guestName, guestName, true);
+                listContainer.innerHTML = '';
+                usersData.users.forEach(u => {
+                    if(attendData.present_users.some(p => p.id === u.id)) addToList(u.id, u.nama, false);
                 });
+                attendData.guests.forEach(g => addToList(g, g, true));
+                updateCount();
 
-            } catch (error) {
-                console.error('Error:', error);
-                daftarHadirContainer.innerHTML = `<p class="text-center text-danger">${error.message}</p>`;
-                anggotaDropdown.innerHTML = `<option disabled selected>${error.message}</option>`;
-            }
-        });
-        
-        addAnggotaBtn.addEventListener('click', function() {
-            const selectedOption = anggotaDropdown.options[anggotaDropdown.selectedIndex];
-            if (!selectedOption || !selectedOption.value) return;
-            addPersonToList(selectedOption.value, selectedOption.textContent, false);
-            anggotaDropdown.selectedIndex = 0;
-            anggotaSearchInput.value = '';
-            anggotaSearchInput.dispatchEvent(new Event('input')); 
-        });
-
-        addGuestBtn.addEventListener('click', function() {
-            const guestName = guestNameInput.value.trim();
-            if (guestName === '') return;
-            addPersonToList(guestName, guestName, true);
-            guestNameInput.value = '';
-        });
-
-        anggotaSearchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const options = anggotaDropdown.options;
-            for (let i = 0; i < options.length; i++) {
-                if (i === 0) continue; 
-                const optionText = options[i].text.toLowerCase();
-                options[i].style.display = optionText.includes(searchTerm) ? '' : 'none';
+            } catch(err) {
+                listContainer.innerHTML = `<div class="p-3 text-center text-danger small">${err.message}</div>`;
             }
         });
 
-        daftarHadirContainer.addEventListener('click', function(event) {
-            const removeBtn = event.target.closest('.remove-anggota-btn');
-            if (removeBtn) removeBtn.closest('.list-group-item').remove();
+        document.getElementById('addAnggotaBtn').onclick = () => {
+            const opt = dropdown.options[dropdown.selectedIndex];
+            if(opt && opt.value) {
+                addToList(opt.value, opt.text, false);
+                dropdown.value = "";
+            }
+        };
+
+        document.getElementById('addGuestBtn').onclick = () => {
+            const inp = document.getElementById('guestNameInput');
+            const name = inp.value.trim();
+            if(name) {
+                addToList(name, name, true);
+                inp.value = "";
+            }
+        };
+
+        document.getElementById('anggotaSearchInput').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase();
+            Array.from(dropdown.options).forEach(opt => {
+                if(opt.value) opt.style.display = opt.text.toLowerCase().includes(term) ? '' : 'none';
+            });
         });
 
-        absensiForm.addEventListener('submit', async function(e) {
+        document.getElementById('absensiForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const submitButton = this.querySelector('button[type="submit"]');
-            submitButton.disabled = true;
-            submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan...`;
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
 
-            const scheduleId = scheduleIdInput.value;
+            const scheduleId = document.getElementById('absensiScheduleId').value;
             const present_users = [];
             const guests = [];
 
-            daftarHadirContainer.querySelectorAll('.list-group-item').forEach(item => {
-                if (item.dataset.isGuest === 'true') {
-                    guests.push(item.dataset.id); 
-                } else {
-                    present_users.push(item.dataset.id); 
-                }
+            listContainer.querySelectorAll('.list-group-item').forEach(el => {
+                if(el.dataset.isGuest === 'true') guests.push(el.dataset.id);
+                else present_users.push(el.dataset.id);
             });
 
             try {
-                const response = await fetch(`{{ route('api.schedule.attendances.store', ['schedule' => ':id']) }}`.replace(':id', scheduleId), {
+                const res = await fetch(`{{ route('api.schedule.attendances.store', ':id') }}`.replace(':id', scheduleId), {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                     body: JSON.stringify({ present_users, guests })
                 });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Gagal menyimpan absensi.');
-                }
-                
-                bsAbsensiModal.hide();
-                window.location.reload(); 
-
-            } catch (error) {
-                console.error('Error saving attendance:', error);
-                alert(`Error: ${error.message}`); 
-            } finally {
-                submitButton.disabled = false;
-                submitButton.innerHTML = 'Simpan Absensi';
+                if(!res.ok) throw new Error("Gagal menyimpan.");
+                bootstrap.Modal.getInstance(absensiModal).hide();
+                window.location.reload();
+            } catch(err) {
+                alert(err.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Simpan Data';
             }
         });
-
-        absensiModalEl.addEventListener('hidden.bs.modal', () => { absensiForm.reset(); daftarHadirContainer.innerHTML = ''; });
     }
 
-    // --- LOGIKA MODAL INFO ABSENSI (LENGKAP) ---
-    const infoModalEl = document.getElementById('infoAbsensiModal');
-    if (infoModalEl) {
-        infoModalEl.addEventListener('show.bs.modal', async function(event) {
-            const button = event.relatedTarget;
-            const scheduleId = button.getAttribute('data-schedule-id');
-            const komselNama = button.getAttribute('data-komsel-nama');
+    // --- INFO MODAL ---
+    const infoModal = document.getElementById('infoAbsensiModal');
+    if(infoModal) {
+        infoModal.addEventListener('show.bs.modal', async function(e) {
+            const btn = e.relatedTarget;
+            const list = document.getElementById('infoDaftarHadirContainer');
+            const totalEl = document.getElementById('totalKehadiran');
             
-            const modalTitle = infoModalEl.querySelector('#infoAbsensiModalLabel');
-            const totalKehadiranEl = infoModalEl.querySelector('#totalKehadiran');
-            const listContainer = infoModalEl.querySelector('#infoDaftarHadirContainer');
-
-            modalTitle.textContent = `Laporan Absensi: ${komselNama}`;
-            listContainer.innerHTML = '<p class="text-center text-secondary">Memuat...</p>';
-            totalKehadiranEl.textContent = '0';
+            list.innerHTML = '<div class="p-4 text-center text-muted"><span class="spinner-border spinner-border-sm"></span></div>';
+            totalEl.textContent = '-';
 
             try {
-                const response = await fetch(`{{ route('api.schedule.attendances.get', ['schedule' => ':id']) }}`.replace(':id', scheduleId));
-                if (!response.ok) throw new Error('Gagal memuat data absensi.');
+                const res = await fetch(`{{ route('api.schedule.attendances.get', ':id') }}`.replace(':id', btn.dataset.scheduleId));
+                if(!res.ok) throw new Error();
+                const data = await res.json();
+
+                list.innerHTML = '';
+                let count = 0;
                 
-                const data = await response.json();
-                listContainer.innerHTML = '';
-                let total = 0;
-
-                data.present_users.forEach(user => {
-                    listContainer.innerHTML += `<div class="list-group-item">${user.nama}</div>`;
-                    total++;
+                data.present_users.forEach(u => {
+                    list.innerHTML += `<div class="list-group-item border-0 border-bottom bg-transparent px-0 py-2"><i class="bi bi-check-circle-fill text-success me-2"></i>${u.nama}</div>`;
+                    count++;
                 });
-
-                data.guests.forEach(guestName => {
-                    listContainer.innerHTML += `<div class="list-group-item">${guestName} <span class="badge text-bg-secondary guest-badge">Tamu</span></div>`;
-                    total++;
+                data.guests.forEach(g => {
+                    list.innerHTML += `<div class="list-group-item border-0 border-bottom bg-transparent px-0 py-2"><i class="bi bi-person-fill text-secondary me-2"></i>${g} <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.65em;">TAMU</span></div>`;
+                    count++;
                 });
-
-                totalKehadiranEl.textContent = total;
                 
-                if (total === 0) {
-                    listContainer.innerHTML = '<p class="text-center text-secondary">Tidak ada data kehadiran.</p>';
-                }
+                totalEl.textContent = count;
+                if(count === 0) list.innerHTML = '<div class="p-4 text-center text-muted">Tidak ada kehadiran tercatat.</div>';
 
-            } catch (error) {
-                console.error('Error fetching attendance info:', error);
-                listContainer.innerHTML = `<p class="text-center text-danger">${error.message}</p>`;
+            } catch(e) {
+                list.innerHTML = '<div class="p-4 text-center text-danger">Gagal memuat data.</div>';
             }
         });
     }
-
-    // --- LOGIKA FILTER DAN MODAL EDIT/CREATE (DENGAN PERBAIKAN FILTER) ---
-    const filterButtons = document.querySelectorAll('.filter-nav-btn');
-    const slider = document.querySelector('.filter-slider');
-    const allTableRows = document.querySelectorAll('.table tbody tr');
-    const emptyRow = document.getElementById('empty-row'); 
-
-    function moveSlider(targetButton) { if (!targetButton) return; const targetRect = targetButton.getBoundingClientRect(); const containerRect = targetButton.parentElement.getBoundingClientRect(); slider.style.width = `${targetRect.width}px`; slider.style.transform = `translateX(${targetRect.left - containerRect.left}px)`; }
-    
-    const initialActiveButton = document.querySelector('.filter-nav-btn.active');
-    if (initialActiveButton) { moveSlider(initialActiveButton); }
-    
-    filterButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            moveSlider(this);
-            filterButtons.forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
-
-            const filterValue = this.getAttribute('data-filter');
-            let visibleRows = 0; 
-
-            allTableRows.forEach(row => {
-                if (row.id === 'empty-row') return; 
-                
-                const rowStatus = row.dataset.status; 
-                
-                if (filterValue === 'all' || rowStatus === filterValue) {
-                    row.style.display = '';
-                    visibleRows++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            if (emptyRow) {
-                emptyRow.style.display = (visibleRows === 0) ? '' : 'none';
-            }
-        });
-    });
-    
-    window.addEventListener('resize', () => { const currentActiveButton = document.querySelector('.filter-nav-btn.active'); if (currentActiveButton) { moveSlider(currentActiveButton); } });
-    
-    const editJadwalModalEl = document.getElementById('editJadwalModal');
-    if (editJadwalModalEl) {
-        editJadwalModalEl.addEventListener('show.bs.modal', event => {
-            const button = event.relatedTarget;
-            const id = button.getAttribute('data-id');
-            const komselId = button.getAttribute('data-komsel-id');
-            const komselNama = button.getAttribute('data-komsel-nama');
-            const day = button.getAttribute('data-day');
-            const time = button.getAttribute('data-time');
-            const location = button.getAttribute('data-location');
-            const description = button.getAttribute('data-description');
-            const status = button.getAttribute('data-status');
-
-            editJadwalModalEl.querySelector('.modal-title').textContent = `Edit Jadwal: ${komselNama}`;
-            editJadwalModalEl.querySelector('#editKomsel').value = komselId;
-            editJadwalModalEl.querySelector('#editDayOfWeek').value = day;
-            editJadwalModalEl.querySelector('#editTime').value = time;
-            editJadwalModalEl.querySelector('#editLokasi').value = location;
-            editJadwalModalEl.querySelector('#editDescription').value = description;
-            editJadwalModalEl.querySelector('#editStatus').value = status;
-
-            let url = `{{ route("jadwal.update", ["schedule" => ":id"]) }}`.replace(':id', id);
-            editJadwalModalEl.querySelector('#editForm').action = url;
-        });
-    }
-    const createJadwalModalEl = document.getElementById('createJadwalModal');
-    if (createJadwalModalEl) { createJadwalModalEl.addEventListener('hidden.bs.modal', () => { document.getElementById('createForm').reset(); }); }
 });
 </script>
 @endpush
