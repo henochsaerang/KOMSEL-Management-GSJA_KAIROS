@@ -10,10 +10,12 @@ use App\Models\GuestAttendance;
 
 // Service & Helper
 use App\Services\OldApiService;
+use App\Services\FonnteService; // [BARU] Import Service Fonnte
 use Illuminate\Http\Request; 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth; 
+use Carbon\Carbon;
 
 class KomselController extends Controller
 {
@@ -157,8 +159,14 @@ class KomselController extends Controller
             return redirect()->route('jadwal')->with('error', 'Anda tidak berwenang membuat jadwal untuk komsel ini.');
         }
 
-        Schedule::create($validated);
-        return redirect()->route('jadwal')->with('success', 'Jadwal baru berhasil ditambahkan!');
+        // [BARU] Simpan ke variabel $schedule agar bisa dipakai untuk broadcast
+        $schedule = Schedule::create($validated);
+
+        // [BARU] Kirim Notifikasi WA via Fonnte
+        // Panggil fungsi ini SEBELUM return
+        $this->broadcastJadwalToKomsel($schedule);
+
+        return redirect()->route('jadwal')->with('success', 'Jadwal baru berhasil ditambahkan dan notifikasi WA dikirim!');
     }
 
     /**
@@ -320,5 +328,40 @@ class KomselController extends Controller
 
         $message = sprintf('Absensi berhasil disimpan: %d anggota dan %d tamu.', count($validated['present_users']), count($validated['guest_names']));
         return response()->json(['message' => $message]);
+    }
+
+    /**
+     * [BARU] Helper Private untuk Broadcast Notifikasi WA
+     */
+    private function broadcastJadwalToKomsel($schedule)
+    {
+        // Cari semua anggota di komsel ini yang punya No HP
+        // Asumsi: Kita mencari di tabel User lokal. 
+        // Jika User berasal dari API, pastikan data mereka sudah tersinkron ke tabel users dan punya kolom no_hp.
+        $anggotaList = User::where('komsel_id', $schedule->komsel_id)
+                           ->whereNotNull('no_hp')
+                           ->where('no_hp', '!=', '') // Pastikan tidak string kosong
+                           ->pluck('no_hp')
+                           ->toArray();
+
+        if (count($anggotaList) > 0) {
+            // Format Pesan
+            $hariIndo = $schedule->day_of_week; 
+            
+            $pesan  = "*PENGUMUMAN JADWAL IBADAH KOMSEL*\n\n";
+            $pesan .= "Shalom, jadwal ibadah komsel baru telah dibuat:\n";
+            $pesan .= "🗓 Hari: " . $hariIndo . "\n";
+            $pesan .= "⏰ Waktu: " . $schedule->time . " WITA\n";
+            $pesan .= "📍 Lokasi: " . $schedule->location . "\n";
+            
+            if(!empty($schedule->description)) {
+                $pesan .= "📝 Ket: " . $schedule->description . "\n";
+            }
+            
+            $pesan .= "\nMohon kehadirannya tepat waktu. Tuhan Yesus Memberkati! 🙏";
+
+            // Kirim via Fonnte Service
+            FonnteService::send($anggotaList, $pesan);
+        }
     }
 }
