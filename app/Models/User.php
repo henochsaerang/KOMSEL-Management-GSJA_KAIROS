@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models; // Sesuaikan namespace Anda
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -11,21 +11,21 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * [FIX 1] KITA TIDAK INGIN ID LOKAL AUTO-INCREMENT
-     * Kita ingin menggunakan ID dari API lama
+     * [FIX 1] Matikan auto-increment karena ID berasal dari API/Manual
      */
     public $incrementing = false;
-    protected $keyType = 'int'; // Asumsi ID adalah integer
+    protected $keyType = 'int'; 
 
     /**
-     * [FIX 2] Pastikan 'id' ada di $fillable
+     * [FIX 2] Tambahkan 'is_coordinator' agar bisa di-update via Controller
      */
     protected $fillable = [
         'id', 
         'name', 
         'email', 
         'password', 
-        'roles'
+        'roles',
+        'is_coordinator' // [BARU] Penting untuk fitur penobatan
     ];
 
     protected $hidden = [
@@ -33,15 +33,20 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    /**
+     * Casts untuk konversi otomatis tipe data
+     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'roles' => 'array', 
+            'roles' => 'array',      // [WAJIB] Agar roles terbaca sebagai Array
+            'is_coordinator' => 'boolean', // [BARU] Agar terbaca true/false
         ];
     }
 
+    // Helper untuk inisial nama
     public function getInitialsAttribute(): string
     {
         $words = explode(' ', $this->name);

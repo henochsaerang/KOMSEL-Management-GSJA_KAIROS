@@ -1,22 +1,16 @@
 @extends('layouts.app')
 
-@section('title', 'Daftar OIKOS')
+@section('title', 'Daftar Kunjungan OIKOS')
 
 @push('styles')
-{{-- CSS KHUSUS HANYA UNTUK HALAMAN INI --}}
 <style>
-    /* Style umum */
     .table thead th { border-bottom: 2px solid var(--border-color); font-weight: 600; }
     .schedule-badge { font-size: 0.8rem; padding: 0.4em 0.7em; background-color: var(--hover-bg); color: var(--text-secondary); border: 1px solid var(--border-color); }
     .modal-content { background-color: var(--element-bg); }
-    
-    /* Style untuk filter animasi */
     .filter-nav-container { position: relative; display: inline-flex; background-color: var(--hover-bg); border-radius: 0.85rem; padding: 5px; box-shadow: var(--shadow); }
     .filter-nav-btn { border: none; background: transparent; color: var(--text-secondary); font-weight: 500; padding: 8px 20px; cursor: pointer; position: relative; z-index: 1; transition: color 0.3s ease; }
     .filter-nav-btn.active { color: #fff; }
     .filter-slider { position: absolute; top: 5px; left: 5px; height: calc(100% - 10px); background-color: var(--primary-color); border-radius: 0.75rem; z-index: 0; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
-
-    /* Style untuk detail laporan di modal */
     .report-detail-group dt { font-weight: 500; color: var(--bs-body-color); }
     .report-detail-group dd { color: var(--text-secondary); }
 </style>
@@ -24,7 +18,6 @@
 
 @section('konten')
 
-    {{-- Filter Navigasi --}}
     <div class="d-flex justify-content-center mb-4">
         <div class="filter-nav-container">
             <div class="filter-slider"></div>
@@ -35,6 +28,29 @@
             <button type="button" class="filter-nav-btn" data-filter="Gagal">Gagal</button>
         </div>
     </div>
+
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>{{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="card">
         <div class="card-body p-4">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
@@ -52,15 +68,27 @@
                         @forelse ($oikosVisits as $visit)
                         <tr data-status="{{ $visit->status }}">
                             <td class="fw-bold">{{ $loop->iteration }}</td>
-                            
-                            {{-- [FIX 1] Baca dari array $visit->jemaat_data (dari API) --}}
                             <td>{{ $visit->jemaat_data['nama'] ?? $visit->oikos_name }}</td>
-                            
-                            {{-- [FIX 2] Baca dari array $visit->pelayan_data (dari API) --}}
-                            <td>{{ $visit->pelayan_data['nama'] ?? 'N/A' }}</td>
-                            
                             <td>
-                                {{-- [FIX SYNTAX] Pastikan tidak ada spasi non-standar --}}
+                                @if($visit->pelayan_data)
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-circle sm bg-primary text-white me-2" style="width:25px;height:25px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:0.8em;">
+                                            {{ substr($visit->pelayan_data['name'] ?? $visit->pelayan_data['nama'] ?? '?', 0, 1) }}
+                                        </div>
+                                        <div>
+                                            <span>{{ $visit->pelayan_data['name'] ?? $visit->pelayan_data['nama'] }}</span>
+                                            @if($visit->original_pelayan_user_id)
+                                                <div class="text-danger small" style="font-size: 0.7rem;">
+                                                    <i class="bi bi-arrow-return-right"></i> Pengganti
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @else
+                                    <span class="text-muted fst-italic">Belum ditentukan</span>
+                                @endif
+                            </td>
+                            <td>
                                 <span @class([
                                     'badge',
                                     'text-bg-warning' => $visit->status == 'Direncanakan',
@@ -79,35 +107,98 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                <div class="btn-group">
-                                    
-                                    @if($visit->status == 'Direncanakan' || $visit->status == 'Berlangsung')
-                                        {{-- [FIX 3] Baca dari $visit->jemaat_data['nama'] --}}
-                                        <button class="btn btn-sm btn-success" title="Input Laporan" data-bs-toggle="modal" data-bs-target="#laporanModal" data-visit-id="{{ $visit->id }}" data-oikos-nama="{{ $visit->jemaat_data['nama'] ?? $visit->oikos_name }}"><i class="bi bi-pencil-square"></i></button>
-                                    
-                                    @elseif ($visit->status == 'Diproses')
-                                        <button class="btn btn-sm btn-info" title="Lihat Laporan" data-bs-toggle="modal" data-bs-target="#viewLaporanModal" data-visit-id="{{ $visit->id }}"><i class="bi bi-eye-fill"></i></button>
-                                        
-                                        @if (Auth::check() && is_array(Auth::user()->roles) && in_array('super_admin', Auth::user()->roles))
-                                            <form action="{{ route('oikos.confirm', $visit->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin mengkonfirmasi laporan ini?')">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="btn btn-sm btn-success" title="Konfirmasi Laporan">
-                                                    <i class="bi bi-check-circle-fill"></i>
-                                                </button>
-                                            </form>
+                                <div class="dropdown">
+                                    <button class="btn btn-light btn-sm" type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                        {{-- Detail --}}
+                                        <li>
+                                            <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#viewLaporanModal" data-visit-id="{{ $visit->id }}">
+                                                <i class="bi bi-eye me-2 text-primary"></i>Detail / Laporan
+                                            </a>
+                                        </li>
+
+                                        @if(in_array($visit->status, ['Direncanakan', 'Diproses']))
+                                            @if($isReportDay)
+                                                <li>
+                                                    <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#laporanModal" data-visit-id="{{ $visit->id }}" data-oikos-nama="{{ $visit->jemaat_data['nama'] ?? $visit->oikos_name }}">
+                                                        <i class="bi bi-pencil-square me-2 text-warning"></i>Input Laporan
+                                                    </a>
+                                                </li>
+                                            @else
+                                                <li>
+                                                    <span class="dropdown-item text-muted" title="Laporan hanya hari Rabu-Sabtu" style="cursor: not-allowed;">
+                                                        <i class="bi bi-clock-history me-2"></i>Lapor (Rabu-Sabtu)
+                                                    </span>
+                                                </li>
+                                            @endif
+
+                                            {{-- [FITUR] Delegasi / Ganti Pelayan --}}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-secondary" href="#" data-bs-toggle="modal" data-bs-target="#modalDelegate{{ $visit->id }}">
+                                                    <i class="bi bi-person-bounding-box me-2"></i>Ganti Pelayan
+                                                </a>
+                                            </li>
                                         @endif
 
-                                    @elseif ($visit->status == 'Selesai')
-                                        <button class="btn btn-sm btn-info" title="Lihat Laporan" data-bs-toggle="modal" data-bs-target="#viewLaporanModal" data-visit-id="{{ $visit->id }}"><i class="bi bi-eye-fill"></i></button>
-                                    
-                                    @else
-                                        <button class="btn btn-sm btn-outline-secondary disabled" title="Tidak ada aksi tersedia"><i class="bi bi-x-circle"></i></button>
-                                    @endif
-
+                                        @if($visit->status == 'Diproses' && Auth::check() && is_array(Auth::user()->roles) && in_array('super_admin', Auth::user()->roles))
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <form action="{{ route('oikos.confirm', $visit->id) }}" method="POST" onsubmit="return confirm('Konfirmasi selesai?')">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" class="dropdown-item text-success fw-bold">
+                                                    <i class="bi bi-check-all me-2"></i>Konfirmasi Selesai
+                                                </button>
+                                            </form>
+                                        </li>
+                                        @endif
+                                    </ul>
                                 </div>
                             </td>
                         </tr>
+
+                        {{-- MODAL DELEGASI (GANTI PELAYAN) --}}
+                        <div class="modal fade" id="modalDelegate{{ $visit->id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <form action="{{ route('oikos.delegate', $visit->id) }}" method="POST">
+                                    @csrf
+                                    @method('PATCH')
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-warning bg-opacity-10">
+                                            <h5 class="modal-title fw-bold text-dark">Delegasi / Ganti Pelayan</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="alert alert-info small mb-3">
+                                                <i class="bi bi-info-circle me-1"></i> Pelayan pengganti akan ditugaskan untuk kunjungan ini.
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Pelayan Pengganti</label>
+                                                <select name="new_pelayan_id" class="form-select" required>
+                                                    <option value="" disabled selected>Pilih Pengganti...</option>
+                                                    @if(isset($pelayans))
+                                                        @foreach($pelayans as $p)
+                                                            <option value="{{ $p['id'] }}">{{ $p['nama'] }}</option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Alasan Penggantian</label>
+                                                <textarea name="replacement_reason" class="form-control" rows="3" placeholder="Contoh: Saya sedang sakit..." required minlength="5"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                            <button type="submit" class="btn btn-warning">Proses Penggantian</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
                         @empty
                         <tr id="empty-row">
                             <td colspan="6" class="text-center text-secondary py-4">
@@ -186,6 +277,10 @@
                                 <label for="tindakan_peduli_desc" class="form-label">Deskripsi Teks:</label>
                                 <textarea id="tindakan_peduli_desc" name="tindakan_peduli_desc" rows="3" class="form-control"></textarea>
                             </div>
+                            <div>
+                                <label for="tindakan_peduli_photo_path" class="form-label">Foto:</label>
+                                <input type="file" id="tindakan_peduli_photo_path" name="tindakan_peduli_photo_path" class="form-control" accept="image/png, image/jpeg, image/jpg">
+                            </div>
                         </div>
 
                         <h3 class="h5 fw-semibold mt-4 pt-3 border-top">Respon Terhadap Injil</h3>
@@ -249,8 +344,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!response.ok) throw new Error('Gagal memuat data laporan.');
                 
                 const data = await response.json();
-
-                // [FIX 4] Baca dari object data.jemaat_data (dari API)
                 const oikosNama = data.jemaat_data ? data.jemaat_data.nama : data.oikos_name;
                 modalTitle.textContent = `Laporan Kunjungan: ${oikosNama}`;
 
@@ -260,11 +353,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
                 };
 
-                const photoHtml = data.tindakan_cinta_photo_path 
-                    ? `<a href="/storage/${data.tindakan_cinta_photo_path}" target="_blank">Lihat Foto</a>`
-                    : 'Tidak ada foto';
+                const photoCintaHtml = data.tindakan_cinta_photo_path 
+                    ? `<div class="mb-2"><small>Foto Cinta:</small><br><a href="/storage/${data.tindakan_cinta_photo_path}" target="_blank"><img src="/storage/${data.tindakan_cinta_photo_path}" class="img-fluid rounded" style="max-height:150px"></a></div>`
+                    : '';
+                const photoPeduliHtml = data.tindakan_peduli_photo_path 
+                    ? `<div class="mb-2"><small>Foto Peduli:</small><br><a href="/storage/${data.tindakan_peduli_photo_path}" target="_blank"><img src="/storage/${data.tindakan_peduli_photo_path}" class="img-fluid rounded" style="max-height:150px"></a></div>`
+                    : '';
 
-                // [FIX 5] Baca dari object data.pelayan_data (dari API)
                 modalBody.innerHTML = `
                     <dl class="row report-detail-group">
                         <dt class="col-sm-4">Nama OIKOS</dt>
@@ -295,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <dt class="col-sm-4">Catatan</dt>
                         <dd class="col-sm-8">${data.catatan || '-'}</dd>
                         <dt class="col-sm-4">Dokumentasi</dt>
-                        <dd class="col-sm-8">${photoHtml}</dd>
+                        <dd class="col-sm-8">${photoCintaHtml} ${photoPeduliHtml}</dd>
                     </dl>
                 `;
 
