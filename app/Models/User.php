@@ -41,9 +41,28 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'roles' => 'array',      // [WAJIB] Agar roles terbaca sebagai Array
-            'is_coordinator' => 'boolean', // [BARU] Agar terbaca true/false
+            'roles' => 'array',
+            'is_coordinator' => 'boolean',
+            'scheduling_unlock_until' => 'datetime', // [WAJIB TAMBAH] Casting kolom baru
         ];
+    }
+
+    // [WAJIB TAMBAH] Tambahkan ke array $fillable di atas juga:
+    // 'scheduling_unlock_until',
+
+    // [WAJIB TAMBAH] Fungsi Logic Waktu
+    public function canScheduleNow(): bool
+    {
+        if ($this->scheduling_unlock_until && now()->lessThan($this->scheduling_unlock_until)) {
+            return true;
+        }
+        return false;
+    }
+    
+    // [WAJIB TAMBAH] Relasi Notifikasi
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class)->orderBy('created_at', 'desc');
     }
 
     // Helper untuk inisial nama

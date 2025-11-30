@@ -22,4 +22,9 @@ class OikosVisit extends Model
         // Terhubung ke model 'User'
         return $this->belongsTo(User::class, 'pelayan_user_id');
     }
+
+    public function originalPelayan()
+    {
+        return $this->belongsTo(User::class, 'original_pelayan_user_id');
+    }
 }

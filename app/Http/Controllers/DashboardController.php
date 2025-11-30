@@ -49,7 +49,7 @@ class DashboardController extends Controller
 
         // --- LOGIKA PENENTUAN ROLE ---
 
-        // A. GEMBALA (Super Admin Murni atau Super Admin yang bukan Leader operasional)
+        // A. GEMBALA
         $isGembala = in_array('super_admin', $roles) && !in_array('Leaders', $roles) && !$user->is_coordinator;
 
         // B. KOORDINATOR
@@ -83,7 +83,6 @@ class DashboardController extends Controller
             return $this->apiService->getAllKomsels();
         }))->keyBy('id');
 
-        // Query Dasar
         $oikosQuery = OikosVisit::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year);
         $schedulesQuery = Schedule::query(); 
         $upcomingSchedulesQuery = Schedule::whereIn('status', ['Menunggu', 'Berlangsung'])->where('created_at', '>=', now()->startOfWeek());
@@ -93,16 +92,15 @@ class DashboardController extends Controller
         $myOikosPreview = collect();
         $myKomselsDetails = collect();
 
-        // [LOGIKA SCOPING DATA FASE 4]
+        // [LOGIKA SCOPING DATA - DIPERBARUI UNTUK FASE 4]
         if (!$isCoordinator) {
-            // --- LEADER BIASA ---
-            // Filter data Jemaat & Jadwal Komsel (berdasarkan Komsel yang dipegang)
-            $jemaatIdsInMyKomsels = $jemaatList->whereIn('komsel_id', $leaderKomselIds)->pluck('id');
+            // LEADER BIASA
             
-            // [UPDATE FASE 4] Filter Oikos: Hanya Tugas Saya (sebagai pelayan)
-            // Request: "Jika pengurus biasa, hitung hanya tugas dia"
-            $oikosQuery->where('pelayan_user_id', $currentUserId);
+            // 1. Filter OIKOS: Hanya Tugas Saya (Sebagai Pelayan)
+            // HAPUS LOGIKA LAMA: $oikosQuery->whereIn('jemaat_id', $jemaatIdsInMyKomsels);
+            $oikosQuery->where('pelayan_user_id', $currentUserId); 
             
+            // 2. Filter Jadwal Komsel: Tetap berdasarkan ID Komsel
             $schedulesQuery->whereIn('komsel_id', $leaderKomselIds);
             $upcomingSchedulesQuery->whereIn('komsel_id', $leaderKomselIds);
             $totalKomsel = count($leaderKomselIds);
@@ -120,15 +118,14 @@ class DashboardController extends Controller
                 ];
             });
         } else {
-            // --- KOORDINATOR ---
-            // Lihat Semua Data
+            // KOORDINATOR: Lihat Semua Data
             $totalKomsel = $komselMap->count();
             
             // Koordinator preview data
             $myMembersPreview = $jemaatList->take(10);
             $myOikosPreview = (clone $oikosQuery)->latest()->take(5)->get();
             
-            // Koordinator Detail Komsel (Top 6 berdasarkan nama/urutan default)
+            // Koordinator Detail Komsel
             $myKomselsDetails = $komselMap->take(6)->map(function($k) use ($jemaatList) {
                 return (object) [
                     'id' => $k['id'],
@@ -166,15 +163,13 @@ class DashboardController extends Controller
         $oikosRevisiUntukUser = collect();
         if (!$isCoordinator) {
             $currentUserId = $user->id;
-            $jemaatIdsInMyKomsels = $jemaatList->whereIn('komsel_id', $leaderKomselIds)->pluck('id');
+            // Revisi juga dicek berdasarkan pelayan_user_id
             $oikosRevisiUntukUser = OikosVisit::where('status', 'Revisi')
-                ->where(function ($query) use ($jemaatIdsInMyKomsels, $currentUserId) {
-                    $query->whereIn('jemaat_id', $jemaatIdsInMyKomsels)
-                          ->orWhere('pelayan_user_id', $currentUserId);
-                })->get(['id', 'oikos_name', 'revision_comment']);
+                ->where('pelayan_user_id', $currentUserId)
+                ->get(['id', 'oikos_name', 'revision_comment']);
         }
 
-        // [FASE 4] Tambahkan variabel 'isAdmin' (Mapped dari $isCoordinator)
+        // Tambahkan variabel 'isAdmin' untuk view logic
         return view('dashboard.dashboard', compact(
             'totalAnggota', 'totalKomsel', 'oikosBulanIni', 'averageAttendance',
             'upcomingSchedules', 'oikosRevisiUntukUser', 'isCoordinator', 'isLeader',

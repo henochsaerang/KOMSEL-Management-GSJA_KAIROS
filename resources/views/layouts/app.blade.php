@@ -396,6 +396,53 @@
                 <h5 class="d-lg-none mb-0 fw-bold text-body">{{ $title ?? 'KOMSEL' }}</h5>
                 
                 <div class="d-flex align-items-center gap-3">
+                    
+                    {{-- === [FITUR NOTIFIKASI BARU - DISISIPKAN DI SINI] === --}}
+                    @auth
+                    <li class="nav-item dropdown me-3 list-unstyled">
+                        <a class="nav-link position-relative" href="#" id="notifDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-bell fs-5 text-secondary"></i>
+                            @php
+                                $unreadCount = Auth::user()->notifications()->where('is_read', false)->count();
+                            @endphp
+                            @if($unreadCount > 0)
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.6rem;">
+                                    {{ $unreadCount }}
+                                    <span class="visually-hidden">unread messages</span>
+                                </span>
+                            @endif
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2" aria-labelledby="notifDropdown" style="width: 320px; max-height: 400px; overflow-y: auto;">
+                            <li class="dropdown-header fw-bold text-uppercase small text-muted px-3 py-2">Notifikasi</li>
+                            <li><hr class="dropdown-divider my-0"></li>
+                            
+                            @forelse(Auth::user()->notifications()->limit(5)->get() as $notif)
+                                <li>
+                                    <a class="dropdown-item py-2 px-3 {{ $notif->is_read ? 'text-muted' : 'bg-light' }}" href="{{ $notif->action_url ?? '#' }}">
+                                        <div class="d-flex align-items-start">
+                                            <div class="me-2 mt-1">
+                                                @if($notif->type == 'assignment')
+                                                    <i class="bi bi-clipboard-check text-primary"></i>
+                                                @else
+                                                    <i class="bi bi-exclamation-circle text-warning"></i>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <div class="small fw-bold text-body">{{ $notif->title }}</div>
+                                                <div class="small text-secondary text-wrap mb-1" style="font-size: 0.75rem; line-height: 1.3;">{{ $notif->message }}</div>
+                                                <div class="text-muted" style="font-size: 0.65rem;">{{ $notif->created_at->diffForHumans() }}</div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                            @empty
+                                <li class="text-center py-4 text-muted small">Tidak ada notifikasi baru.</li>
+                            @endforelse
+                        </ul>
+                    </li>
+                    @endauth
+                    {{-- === END NOTIFIKASI === --}}
+
                     {{-- Profile Dropdown --}}
                     <div class="dropdown" id="settingsDropdown">
                         <button class="btn p-0 border-0 d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
