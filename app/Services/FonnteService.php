@@ -8,9 +8,8 @@ use Illuminate\Support\Facades\Log;
 class FonnteService
 {
     /**
-     * Kirim pesan WhatsApp via Fonnte (MODE TESTING)
-     * * @param mixed $target Nomor HP asli dari database
-     * @param string $message Isi pesan
+     * Kirim pesan WhatsApp via Fonnte
+     * Dengan fitur SAFETY LOCK untuk mode testing.
      */
     public static function send($target, $message)
     {
@@ -22,20 +21,28 @@ class FonnteService
         }
 
         // =================================================================
-        // 🔒 SAFETY LOCK (PENGAMAN TESTING)
-        // Fitur ini memaksa semua pesan dikirim ke nomor developer saja.
-        // Hapus atau komentari baris di bawah ini jika sudah siap Live/Produksi.
+        // 🔒 SAFETY LOCK (PENGAMAN TESTING - AKTIF)
         // =================================================================
+        // Logika ini akan MEMBELOKKAN semua pesan ke nomor developer.
+        // Hapus blok ini jika aplikasi sudah siap dipakai Jemaat (Live).
         
-        $originalTarget = is_array($target) ? implode(',', $target) : $target; // Simpan target asli untuk log
+        // Simpan target asli sekedar untuk catatan di pesan
+        $originalTarget = is_array($target) ? implode(',', $target) : $target; 
         
-        // GANTI NOMOR INI DENGAN NOMOR WA ANDA SENDIRI!
+        // [PENTING] NOMOR TUJUAN TESTING (Nomor Anda)
         $target = '082154325366'; 
 
-        // Tambahkan info debugging ke pesan agar Anda tahu pesan ini aslinya untuk siapa
-        $message = "[TESTING MODE]\nTarget Asli: " . $originalTarget . "\n\n" . $message;
-
+        // Tambahkan header di pesan agar Anda tahu ini testing
+        $message = "*[MODE TESTING AKTIF]*\n" . 
+                   "Tujuan Asli: " . $originalTarget . "\n" . 
+                   "--------------------------\n" . 
+                   $message;
         // =================================================================
+
+        // Handle jika target berupa array (jaga-jaga jika safety lock dimatikan nanti)
+        if (is_array($target)) {
+            $target = implode(',', $target);
+        }
 
         try {
             $response = Http::withHeaders([
@@ -43,9 +50,10 @@ class FonnteService
             ])->post('https://api.fonnte.com/send', [
                 'target' => $target,
                 'message' => $message,
-                'countryCode' => '62', 
+                'countryCode' => '62', // Otomatis ubah 08 jadi 62
             ]);
 
+            // Cek jika API Fonnte menolak (misal token salah/expired/device disconnect)
             if ($response->failed()) {
                 Log::error('Gagal kirim WA Fonnte: ' . $response->body());
             }
