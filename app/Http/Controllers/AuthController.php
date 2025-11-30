@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log; // Tambahkan Log untuk debugging
 
 class AuthController extends Controller
 {
@@ -55,14 +56,13 @@ class AuthController extends Controller
         $userName = $apiUser['name'] ?? $apiUser['nama'] ?? 'User Tanpa Nama';
 
         // --- LOGIKA PENCARIAN DATA LENGKAP (NO HP & KOMSEL) ---
-        // Kita butuh data detail untuk notifikasi WA & Filter Komsel
         
         $userNoHp = null;
         $userKomselId = null;
         $finalRoles = $apiUser['roles'] ?? []; 
-        $finalKomsels = []; // Untuk session leader
+        $finalKomsels = []; // Array ID Komsel yang dipegang leader
 
-        // Coba cari di data LEADER dulu
+        // Cek Data LEADER dari API
         $allLeaders = Cache::remember('api_leader_list_v2', 3600, function () {
             return $this->apiService->getAllLeaders();
         });
@@ -80,7 +80,7 @@ class AuthController extends Controller
             if (!is_array($finalKomsels)) $finalKomsels = [];
             
         } else {
-            // Jika BUKAN Leader, cari di data JEMAAT
+            // Jika BUKAN Leader, cek Data JEMAAT
             $allJemaat = Cache::remember('api_jemaat_list_v2', 3600, function () {
                 return $this->apiService->getAllJemaat();
             });
@@ -95,7 +95,7 @@ class AuthController extends Controller
 
         $isSuperAdmin = in_array('super_admin', $finalRoles);
 
-        // 2. SINKRONISASI KE DATABASE LOKAL (WAJIB LENGKAP)
+        // 2. SINKRONISASI USER YANG LOGIN (LEADER/DIRI SENDIRI)
         $user = User::updateOrCreate(
             ['id' => $apiUserId], 
             [
@@ -103,10 +103,51 @@ class AuthController extends Controller
                 'email' => $credentials['email'], 
                 'password' => Hash::make($credentials['password']),
                 'roles' => $finalRoles,
-                'no_hp' => $userNoHp,          // [PENTING] Simpan No HP untuk Fonnte
-                'komsel_id' => $userKomselId,  // [PENTING] Simpan ID Komsel untuk Broadcast
+                'no_hp' => $userNoHp,          
+                'komsel_id' => $userKomselId,  
             ]
         );
+
+        // =================================================================
+        // 3. [FITUR BARU] SINKRONISASI MASSAL ANGGOTA KOMSEL
+        // Jika User adalah LEADER (punya komsel), kita tarik semua anggota komselnya
+        // ke database lokal supaya bisa dikirimi Notifikasi WA.
+        // =================================================================
+        if (!empty($finalKomsels)) {
+            // Ambil semua jemaat (menggunakan cache agar cepat)
+            $allJemaatSync = Cache::remember('api_jemaat_list_v2', 3600, function () {
+                return $this->apiService->getAllJemaat();
+            });
+
+            if ($allJemaatSync) {
+                // Filter hanya jemaat yang berada di komsel-komsel milik leader ini
+                $myMembers = collect($allJemaatSync)->whereIn('komsel_id', $finalKomsels);
+
+                foreach ($myMembers as $member) {
+                    // Masukkan/Update data anggota ke tabel 'users' lokal
+                    // Password di-set dummy karena mereka mungkin tidak login, tapi butuh data no_hp
+                    try {
+                        User::updateOrCreate(
+                            ['id' => $member['id']],
+                            [
+                                'name' => $member['nama'] ?? 'Anggota',
+                                'email' => $member['email'] ?? null, // Email bisa null di tabel user jika diset nullable
+                                'password' => Hash::make('default123'), // Password default
+                                'no_hp' => $member['no_hp'] ?? null,    // PENTING: No HP masuk sini
+                                'komsel_id' => $member['komsel_id'],    // PENTING: ID Komsel masuk sini
+                                // 'roles' => [] // Default kosong (Jemaat)
+                            ]
+                        );
+                    } catch (\Exception $e) {
+                        // Log error diam-diam jika ada data anggota yang bermasalah (misal email duplikat)
+                        // Lanjut ke anggota berikutnya
+                        Log::warning("Gagal sync anggota ID {$member['id']}: " . $e->getMessage());
+                        continue; 
+                    }
+                }
+            }
+        }
+        // =================================================================
 
         Auth::login($user, $request->filled('remember'));
         $request->session()->regenerate();
