@@ -4,10 +4,20 @@
 
 @push('styles')
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+{{-- Flatpickr CSS --}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
 <style>
 .ts-control {
     padding: 0.375rem 2.25rem 0.375rem 0.75rem;
     min-height: calc(1.5em + 0.75rem + 2px);
+}
+.input-group-text {
+    background-color: #fff;
+    border-left: 0;
+}
+.form-control.datepicker {
+    border-right: 0;
 }
 </style>
 @endpush
@@ -37,6 +47,7 @@
                          @csrf
                          <input type="hidden" name="input_type" id="inputType" value="manual">
 
+                         {{-- SECTION 1: TARGET OIKOS --}}
                          <div id="inputManualContainer">
                              <label for="Anggota_tidakTerdaftar" class="form-label fw-bold">Nama OIKOS (Baru / Tidak Terdaftar):</label>
                              <input type="text" id="Anggota_tidakTerdaftar" name="Anggota_tidakTerdaftar" class="form-control" placeholder="Contoh: Keluarga Bapak Budi">
@@ -59,24 +70,43 @@
                          
                          <hr>
 
+                         {{-- SECTION 2: PELAYAN (OTOMATIS / MANUAL) --}}
                          <div class="mb-3">
-                             <label for="pelayan" class="form-label">Pelayan (Yang Mengunjungi)</label>
-                             <select class="form-select" id="pelayan" name="pelayan" required>
-                                 <option value="" disabled selected>Pilih Pelayan..</option>
-                                 @foreach ($pelayans as $pelayan)
-                                     <option value="{{ $pelayan['id'] }}">{{ $pelayan['nama'] }}</option>
-                                 @endforeach
-                             </select>
+                             <label class="form-label fw-bold">Pelayan (Yang Mengunjungi)</label>
+                             
+                             @if($isAdmin)
+                                 {{-- Jika Admin: Boleh pilih siapa saja --}}
+                                 <select class="form-select" id="pelayan" name="pelayan" required>
+                                     <option value="" disabled selected>Pilih Pelayan..</option>
+                                     @foreach ($pelayans as $pelayan)
+                                         <option value="{{ $pelayan['id'] }}">{{ $pelayan['nama'] }}</option>
+                                     @endforeach
+                                 </select>
+                                 <div class="form-text">Sebagai Admin, Anda bisa menugaskan pelayan lain.</div>
+                             @else
+                                 {{-- Jika Leader Biasa: Otomatis Diri Sendiri --}}
+                                 <div class="input-group">
+                                     <span class="input-group-text bg-light"><i class="bi bi-person-check-fill text-success"></i></span>
+                                     <input type="text" class="form-control bg-light" value="{{ $currentUser->name }} (Anda)" readonly>
+                                 </div>
+                                 <div class="form-text text-muted">Pelayan otomatis diatur sebagai diri Anda sendiri.</div>
+                             @endif
                          </div>
                          
                          <div class="row">
                              <div class="col-md-6 mb-3">
-                                 <label for="tanggalDari" class="form-label">Jadwal dari Tanggal:</label>
-                                 <input type="date" id="tanggalDari" name="tanggalDari" class="form-control" required>
+                                 <label for="tanggalDari" class="form-label">Perkiraan Mulai (Rabu - Sabtu):</label>
+                                 <div class="input-group">
+                                     <input type="text" id="tanggalDari" name="tanggalDari" class="form-control datepicker" placeholder="Pilih tanggal..." required>
+                                     <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                                 </div>
                              </div>
                              <div class="col-md-6 mb-3">
-                                 <label for="tanggalSampai" class="form-label">s/d Tanggal:</label>
-                                 <input type="date" id="tanggalSampai" name="tanggalSampai" class="form-control" required>
+                                 <label for="tanggalSampai" class="form-label">Perkiraan Selesai (Rabu - Sabtu):</label>
+                                 <div class="input-group">
+                                     <input type="text" id="tanggalSampai" name="tanggalSampai" class="form-control datepicker" placeholder="Pilih tanggal..." required>
+                                     <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                                 </div>
                              </div>
                          </div>
 
@@ -97,6 +127,9 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/id.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const toggleSwitch = document.getElementById('toggleInputType');
@@ -110,11 +143,14 @@ document.addEventListener('DOMContentLoaded', function () {
         placeholder: "Ketik untuk mencari nama..."
     });
 
-    const tomSelectPelayan = new TomSelect("#pelayan", {
-         create: false,
-         sortField: { field: "text", direction: "asc" },
-        placeholder: "Pilih Pelayan.."
-    });
+    const pelayanSelect = document.getElementById('pelayan');
+    if (pelayanSelect) {
+        new TomSelect("#pelayan", {
+             create: false,
+             sortField: { field: "text", direction: "asc" },
+            placeholder: "Pilih Pelayan.."
+        });
+    }
 
     if (toggleSwitch) {
         toggleSwitch.addEventListener('change', function() {
@@ -132,6 +168,52 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // === KONFIGURASI TANGGAL (RABU - SABTU MINGGU INI) ===
+    // Aturan:
+    // User mengakses form ini biasanya di hari Minggu - Selasa.
+    // Tanggal yang boleh dipilih untuk kunjungan adalah Rabu - Sabtu di minggu yang sama.
+    
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 (Minggu) - 6 (Sabtu)
+    
+    // Kita hitung hari Rabu di minggu ini
+    // Minggu (0) -> Rabu (+3)
+    // Senin (1) -> Rabu (+2)
+    // Selasa (2) -> Rabu (+1)
+    // Rabu (3) -> Rabu (0)
+    
+    // Rumus: diff = 3 (Rabu) - dayOfWeek. 
+    // Jika hasilnya negatif (misal hari Kamis/Jumat), itu urusan lain, tapi asumsinya user akses di Min-Sel.
+    
+    const diffToWednesday = 3 - dayOfWeek; 
+    
+    const wednesdayThisWeek = new Date(today);
+    wednesdayThisWeek.setDate(today.getDate() + diffToWednesday);
+
+    // Hitung hari Sabtu (Rabu + 3 hari)
+    const saturdayThisWeek = new Date(wednesdayThisWeek);
+    saturdayThisWeek.setDate(wednesdayThisWeek.getDate() + 3);
+
+    const fpDari = flatpickr("#tanggalDari", {
+        locale: "id",
+        dateFormat: "Y-m-d",
+        // Kunci kalender hanya di antara Rabu s/d Sabtu minggu ini
+        minDate: wednesdayThisWeek,
+        maxDate: saturdayThisWeek,
+        onChange: function(selectedDates, dateStr, instance) {
+            // Update minDate untuk tanggal sampai agar tidak lebih kecil dari tanggal mulai
+            fpSampai.set('minDate', dateStr);
+            fpSampai.set('maxDate', saturdayThisWeek);
+        }
+    });
+
+    const fpSampai = flatpickr("#tanggalSampai", {
+        locale: "id",
+        dateFormat: "Y-m-d",
+        minDate: wednesdayThisWeek,
+        maxDate: saturdayThisWeek
+    });
 });
 </script>
 @endpush
