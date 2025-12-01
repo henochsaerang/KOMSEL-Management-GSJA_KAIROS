@@ -81,6 +81,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/kunjungan/{kunjungan}', [KunjunganController::class, 'destroy'])->name('kunjungan.destroy');
     // --- END SECTION KUNJUNGAN ---
 
+    Route::patch('/oikos-visits/{oikosVisit}/request-unlock', [OikosController::class, 'requestReportUnlock'])->name('oikos.request_unlock');
+    Route::get('/oikos-visits/{oikosVisit}/approve-unlock', [OikosController::class, 'approveReportUnlock'])->name('oikos.approve_unlock');
+
     
 
     // Rute Logout

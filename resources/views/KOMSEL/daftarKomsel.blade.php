@@ -213,17 +213,28 @@
             width: auto;
             padding: 0;
         }
-        /* Hide 'Jadwal' text on mobile to save space */
-        .table td:nth-child(5) .btn span { display: none; }
-        .table td:nth-child(5) .btn i { margin-right: 0 !important; }
+        
+        /* === MOBILE BUTTON STYLE === */
+        /* Make button a circle on mobile and hide text */
         .table td:nth-child(5) .btn { 
-            padding: 0.4rem; 
+            padding: 0; 
             width: 36px; 
             height: 36px; 
             display: flex; 
             align-items: center; 
             justify-content: center;
             border-radius: 50% !important;
+        }
+        
+        /* Hide text and chevron on mobile */
+        .table td:nth-child(5) .btn span,
+        .table td:nth-child(5) .btn .bi-chevron-down { 
+            display: none; 
+        }
+        /* Ensure main icon is visible */
+        .table td:nth-child(5) .btn i:first-child {
+            margin-right: 0 !important;
+            font-size: 1.1rem;
         }
     }
 
@@ -272,7 +283,7 @@
     </div>
 
     {{-- Card Wrapper --}}
-    <div class="card border-0 bg-transparent shadow-none"> {{-- Remove default card style on outer wrapper for mobile layout --}}
+    <div class="card border-0 bg-transparent shadow-none">
         <div class="card-body p-0">
             {{-- Toolbar / Search Bar --}}
             <div class="p-3 border-bottom d-flex align-items-center rounded-top-4 mb-3 mb-md-0" style="background-color: var(--element-bg); border: 1px solid var(--border-color); border-radius: 1rem;">
@@ -348,13 +359,48 @@
                                 </td>
 
                                 <td class="text-end pe-4">
-                                    <a href="{{ route('formInput', ['jemaat_id' => $user['id']]) }}" 
-                                       class="btn btn-sm btn-light text-primary shadow-sm border rounded-pill px-3 fw-bold"
-                                       style="background: var(--element-bg); border-color: var(--border-color)!important;"
-                                       data-bs-toggle="tooltip" 
-                                       title="Buat Jadwal OIKOS untuk {{ $user['nama'] }}">
-                                        <i class="bi bi-calendar-plus me-md-1"></i> <span>Jadwal</span>
-                                    </a>
+                                    {{-- Dropdown Action Menu --}}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light text-primary shadow-sm border px-3 fw-bold d-inline-flex align-items-center justify-content-center"
+                                                type="button" 
+                                                data-bs-toggle="dropdown" 
+                                                aria-expanded="false"
+                                                style="background: var(--element-bg); border-color: var(--border-color)!important; border-radius: 50rem;">
+                                            <i class="bi bi-calendar-plus me-md-1"></i> 
+                                            <span>Jadwal</span>
+                                            <i class="bi bi-chevron-down ms-1 small"></i>
+                                        </button>
+                                        
+                                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2 rounded-4 mt-2">
+                                            <li><h6 class="dropdown-header text-uppercase small fw-bold text-secondary mb-1">Pilih Jadwal</h6></li>
+                                            
+                                            {{-- Option 1: OIKOS (Pre-fill name via ID) --}}
+                                            <li>
+                                                <a class="dropdown-item rounded-2 py-2 mb-1 d-flex align-items-center" href="{{ route('formInput', ['jemaat_id' => $user['id']]) }}">
+                                                    <span class="d-flex align-items-center justify-content-center bg-warning bg-opacity-10 text-warning rounded-2 me-2" style="width: 32px; height: 32px;">
+                                                        <i class="bi bi-house-heart-fill"></i>
+                                                    </span>
+                                                    <div>
+                                                        <div class="fw-bold small text-body">Jadwal OIKOS</div>
+                                                        <div class="text-secondary" style="font-size: 0.65rem;">Penjangkauan</div>
+                                                    </div>
+                                                </a>
+                                            </li>
+
+                                            {{-- Option 2: Kunjungan --}}
+                                            <li>
+                                                <a class="dropdown-item rounded-2 py-2 d-flex align-items-center" href="{{ route('kunjungan.create', ['member_id' => $user['id']]) }}">
+                                                    <span class="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-2 me-2" style="width: 32px; height: 32px;">
+                                                        <i class="bi bi-person-walking"></i>
+                                                    </span>
+                                                    <div>
+                                                        <div class="fw-bold small text-body">Jadwal Kunjungan</div>
+                                                        <div class="text-secondary" style="font-size: 0.65rem;">Gembala / Besuk</div>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -378,8 +424,11 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Tooltips
-    [...document.querySelectorAll('[data-bs-toggle="tooltip"]')].map(el => new bootstrap.Tooltip(el));
+    // Initialize Tooltips (Bootstrap)
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
 
     // === FILTER LOGIC ===
     const komselFilterInput = document.getElementById('komsel-filter');
