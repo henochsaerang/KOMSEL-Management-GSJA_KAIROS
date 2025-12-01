@@ -141,6 +141,24 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
+    
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show mb-4 border-0 shadow-sm" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    
+    @if ($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show mb-4 border-0 shadow-sm">
+            <ul class="mb-0 ps-3">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     {{-- FILTER NAVIGATION --}}
     <div class="filter-wrapper">
@@ -179,7 +197,6 @@
                         </tr>
                     </thead>
                     <tbody class="bg-transparent">
-                        {{-- [FIX] Variabel sekarang menggunakan $kunjungans (sesuai Controller) --}}
                         @forelse($kunjungans as $visit)
                         <tr data-status="{{ $visit['status'] }}">
                             {{-- 1. WAKTU --}}
@@ -241,7 +258,7 @@
                                             data-catatan="{{ $visit['catatan'] }}"
                                             data-photo="{{ $visit['photo_path'] ? asset('storage/'.$visit['photo_path']) : '' }}"
                                             title="Input Laporan">
-                                        <i class="bi bi-pencil-square me-1"></i> Lapor
+                                            <i class="bi bi-pencil-square me-1"></i> Lapor
                                     </button>
                                     @endif
 
@@ -335,7 +352,9 @@
 
                         {{-- Upload Foto --}}
                         <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary text-uppercase">Dokumentasi</label>
+                            <label class="form-label small fw-bold text-secondary text-uppercase">
+                                Dokumentasi <span class="text-danger">*</span>
+                            </label>
                             
                             {{-- Input File --}}
                             <input type="file" name="bukti_foto" id="buktiFotoInput" class="form-control mb-2" accept="image/*">
@@ -348,11 +367,12 @@
                                 </button>
                             </div>
                             <div id="noPhotoText" class="text-secondary small fst-italic d-none">Tidak ada foto dilampirkan.</div>
+                            <div id="requiredWarning" class="text-danger small mt-1 d-none">* Bukti foto wajib diupload untuk status Berhasil.</div>
                         </div>
 
                         {{-- CATATAN --}}
                         <div class="mb-2">
-                            <label class="form-label small fw-bold text-secondary text-uppercase">Catatan Hasil</label>
+                            <label class="form-label small fw-bold text-secondary text-uppercase">Catatan Hasil <span class="text-danger">*</span></label>
                             <textarea name="catatan_hasil" id="catatanInput" class="form-control" rows="4" placeholder="Ceritakan hasil kunjungan..." required></textarea>
                         </div>
                     </div>
@@ -389,6 +409,8 @@
         const photoDisplay = document.getElementById('fotoDisplay');
         const fileInput = document.getElementById('buktiFotoInput');
         const noPhotoText = document.getElementById('noPhotoText');
+        const warningText = document.getElementById('requiredWarning');
+        const statusRadios = document.querySelectorAll('input[name="status_akhir"]');
         
         fileInput.value = '';
 
@@ -411,6 +433,7 @@
             catatanInput.disabled = true;
             submitBtn.classList.add('d-none');
             if(removePhotoBtn) removePhotoBtn.classList.add('d-none');
+            if(warningText) warningText.classList.add('d-none');
             document.querySelector('.modal-title').textContent = "Detail Kunjungan";
         } else {
             statusGroup.classList.remove('d-none');
@@ -419,6 +442,32 @@
             submitBtn.classList.remove('d-none');
             if(removePhotoBtn) removePhotoBtn.classList.remove('d-none');
             document.querySelector('.modal-title').textContent = "Laporan Realisasi";
+
+            // LOGIKA PENTING: Toggle Required berdasarkan Status
+            const updateRequired = () => {
+                const status = document.querySelector('input[name="status_akhir"]:checked').value;
+                const hasExistingPhoto = !!photoUrl;
+                
+                // Jika Status SELESAI dan BELUM ADA FOTO -> Wajib
+                if (status === 'Selesai' && !hasExistingPhoto) {
+                    fileInput.setAttribute('required', 'required');
+                    if(warningText) warningText.classList.remove('d-none');
+                } else {
+                    fileInput.removeAttribute('required');
+                    if(warningText) warningText.classList.add('d-none');
+                }
+            };
+
+            // 1. Jalankan check awal
+            updateRequired();
+
+            // 2. Jalankan check saat ganti status radio button
+            statusRadios.forEach(r => r.addEventListener('change', updateRequired));
+            
+            // 3. (Opsional) Reset saat foto dihapus/ditambah
+            fileInput.addEventListener('change', function() {
+                if(this.files.length > 0 && warningText) warningText.classList.add('d-none');
+            });
         }
 
         modal.show();
@@ -462,6 +511,7 @@
         const fileInput = document.getElementById('buktiFotoInput');
         const previewImg = document.getElementById('fotoDisplay');
         const previewBox = document.getElementById('photoPreviewBox');
+        const warningText = document.getElementById('requiredWarning');
 
         fileInput.addEventListener('change', function() {
             const file = this.files[0];
@@ -470,6 +520,7 @@
                 reader.onload = function(e) {
                     previewImg.src = e.target.result;
                     previewBox.classList.remove('d-none');
+                    if(warningText) warningText.classList.add('d-none');
                 }
                 reader.readAsDataURL(file);
             }
@@ -481,6 +532,13 @@
                 fileInput.value = '';
                 previewBox.classList.add('d-none');
                 previewImg.src = '';
+                
+                // Re-check required logic jika foto dihapus manual
+                const status = document.querySelector('input[name="status_akhir"]:checked');
+                if(status && status.value === 'Selesai') {
+                    fileInput.setAttribute('required', 'required');
+                    if(warningText) warningText.classList.remove('d-none');
+                }
             });
         }
         
