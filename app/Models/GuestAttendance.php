@@ -11,7 +11,7 @@ class GuestAttendance extends Model
 
     protected $fillable = [
         'schedule_id',
-        'name',
+        'name', // Nama tamu disimpan text
     ];
 
     public function schedule()

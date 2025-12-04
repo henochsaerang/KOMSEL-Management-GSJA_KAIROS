@@ -39,7 +39,6 @@ class KomselController extends Controller
 
     /**
      * Menampilkan daftar anggota.
-     * [FIXED] Normalisasi data & Hydration ke Object User.
      */
     public function daftar(Request $request) 
     {
@@ -71,7 +70,7 @@ class KomselController extends Controller
         $processUser = function($item) use ($komselMap) {
             $item = (array) $item; 
             
-            // Fix Nama: Prioritas 'nama' dari API, jika tidak ada pakai 'name'
+            // Fix Nama: Prioritas 'nama' dari API
             if (isset($item['nama']) && !isset($item['name'])) {
                 $item['name'] = $item['nama'];
             }
@@ -99,10 +98,7 @@ class KomselController extends Controller
 
         // 4. Filter Hak Akses (Jika bukan Super Admin)
         if (!$isSuperAdmin && !empty($leaderKomselIds)) {
-            // Filter Jemaat: Hanya tampilkan yang komsel_id-nya milik leader
             $jemaat = $jemaat->whereIn('komsel_id', $leaderKomselIds);
-            
-            // Filter Dropdown Komsel
             $komselsToShow = $komselsToShow->whereIn('id', $leaderKomselIds);
         }
 
@@ -190,7 +186,7 @@ class KomselController extends Controller
 
         $schedule = Schedule::create($validated);
         
-        // [UPDATE] Broadcast Real-time dari API (Tidak pakai DB Lokal)
+        // Broadcast Real-time
         $this->broadcastJadwalToKomsel($schedule);
 
         return redirect()->route('jadwal')->with('success', 'Jadwal berhasil ditambahkan dan notifikasi WA dikirim!');
@@ -215,15 +211,23 @@ class KomselController extends Controller
         }
 
         $validated = $request->validate([
-            'komsel_id' => 'required|integer', 
+            'komsel_id'   => 'required|integer', 
             'day_of_week' => 'required|string|max:255',
-            'time' => 'required|date_format:H:i',
-            'location' => 'required|string|max:255',
+            'time'        => 'required', 
+            'location'    => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'required|in:Menunggu,Berlangsung,Selesai,Gagal',
+            'status'      => 'required|in:Menunggu,Berlangsung,Selesai,Gagal',
         ]);
 
-        $schedule->update($validated);
+        $schedule->komsel_id   = $validated['komsel_id'];
+        $schedule->day_of_week = $validated['day_of_week'];
+        $schedule->time        = $validated['time'];
+        $schedule->location    = $validated['location'];
+        $schedule->description = $validated['description'] ?? null;
+        $schedule->status      = $validated['status'];
+        
+        $schedule->save();
+
         return redirect()->route('jadwal')->with('success', 'Jadwal diperbarui!');
     }
 
@@ -250,7 +254,7 @@ class KomselController extends Controller
     }
 
     // =========================================================================
-    // API METHODS (BISA DIAKSES OLEH PARTNER & OTR)
+    // API METHODS
     // =========================================================================
 
     public function getUsersForKomsel(Request $request, $komselId) 
@@ -262,27 +266,18 @@ class KomselController extends Controller
             return response()->json(['error' => 'Tidak diizinkan'], 403);
         }
 
-        $admins = collect(Cache::remember(self::CACHE_KEY['leader_list'], self::CACHE_TTL, function () {
-            return $this->apiService->getAllLeaders() ?: [];
-        }));
-        
-        $jemaat = collect(Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, function () {
-            return $this->apiService->getAllJemaat() ?: [];
-        }));
-
+        $admins = collect(Cache::remember(self::CACHE_KEY['leader_list'], self::CACHE_TTL, fn() => $this->apiService->getAllLeaders() ?: []));
+        $jemaat = collect(Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, fn() => $this->apiService->getAllJemaat() ?: []));
         $allUsers = $admins->concat($jemaat);
         
         $usersInKomsel = $allUsers->filter(function ($user) use ($komselId) {
             $uKomselId = is_array($user) ? ($user['komsel_id'] ?? null) : ($user->komsel_id ?? null);
             return $uKomselId == $komselId;
-        })
-        ->map(function($user) {
+        })->map(function($user) {
             $id = is_array($user) ? $user['id'] : $user->id;
             $nama = is_array($user) ? ($user['nama'] ?? $user['name']) : ($user->nama ?? $user->name);
             return ['id' => $id, 'nama' => $nama];
-        })
-        ->sortBy('nama')
-        ->values(); 
+        })->sortBy('nama')->values(); 
 
         return response()->json(['users' => $usersInKomsel]);
     }
@@ -296,16 +291,8 @@ class KomselController extends Controller
             return response()->json(['error' => 'Tidak diizinkan'], 403);
         }
 
-        $jemaatList = collect(Cache::remember(self::CACHE_KEY['jemaat_map'], self::CACHE_TTL, function () {
-            $data = $this->apiService->getAllJemaat();
-            return $data ? collect($data)->filter()->keyBy('id')->all() : [];
-        }));
-        
-        $adminList = collect(Cache::remember(self::CACHE_KEY['leader_map'], self::CACHE_TTL, function () {
-            $data = $this->apiService->getAllLeaders();
-            return $data ? collect($data)->filter()->keyBy('id')->all() : [];
-        }));
-        
+        $jemaatList = collect(Cache::remember(self::CACHE_KEY['jemaat_map'], self::CACHE_TTL, fn() => collect($this->apiService->getAllJemaat())->filter()->keyBy('id')->all()));
+        $adminList = collect(Cache::remember(self::CACHE_KEY['leader_map'], self::CACHE_TTL, fn() => collect($this->apiService->getAllLeaders())->filter()->keyBy('id')->all()));
         $allApiUsers = $adminList->union($jemaatList);
 
         $presentUserIds = $schedule->attendances()->pluck('user_id');
@@ -322,13 +309,19 @@ class KomselController extends Controller
                 $localUser = User::find($id);
                 if($localUser) {
                     $present_users[] = ['id' => $localUser->id, 'nama' => $localUser->name];
+                } else {
+                    $present_users[] = ['id' => $id, 'nama' => 'ID: ' . $id];
                 }
             }
         }
-        
         return response()->json(['present_users' => $present_users, 'guests' => $guestNames]);
     }
 
+    /**
+     * Store Attendance [FINAL FIXED VERSION]
+     * Menangani User yang belum ada di DB Lokal (Error 1452)
+     * Menangani Email Kembar (Error 1062)
+     */
     public function storeAttendance(Request $request, Schedule $schedule)
     {
         $isSuperAdmin = $request->session()->get('is_super_admin', false);
@@ -345,13 +338,47 @@ class KomselController extends Controller
             'guest_names.*' => 'string|max:255',
         ]);
 
-        DB::transaction(function () use ($schedule, $validated) {
+        // 1. Ambil Data Cache untuk Sync Dadakan
+        $jemaatList = collect(Cache::get(self::CACHE_KEY['jemaat_list'], []));
+        $leaderList = collect(Cache::get(self::CACHE_KEY['leader_list'], []));
+        $allApiUsers = $jemaatList->concat($leaderList)->map(function($item){ return (array)$item; })->keyBy('id');
+
+        DB::transaction(function () use ($schedule, $validated, $allApiUsers) {
             $schedule->attendances()->delete();
             $schedule->guestAttendances()->delete();
             
             foreach ($validated['present_users'] as $userId) {
+                // Cek apakah user sudah ada di DB Lokal?
+                $localUser = User::find($userId);
+
+                // Jika belum ada, Buat User Baru (Sync Dadakan)
+                if (!$localUser) {
+                    $apiData = $allApiUsers->get($userId);
+                    
+                    if ($apiData) {
+                        $email = $apiData['email'] ?? null;
+
+                        // [FIX CRITICAL] Cek jika email kembar, tambahkan ID di depannya
+                        if ($email && User::where('email', $email)->exists()) {
+                            $email = $userId . '_' . $email; 
+                        }
+
+                        User::create([
+                            'id' => $userId,
+                            'name' => $apiData['nama'] ?? $apiData['name'] ?? 'Tanpa Nama',
+                            'email' => $email, 
+                            'password' => bcrypt('default123'),
+                            'no_hp' => $apiData['no_hp'] ?? null,
+                            'komsel_id' => $apiData['komsel_id'] ?? null,
+                        ]);
+                    } else {
+                        continue; // Skip jika data API tidak ditemukan
+                    }
+                }
+
                 Attendance::create(['schedule_id' => $schedule->id, 'user_id' => $userId]);
             }
+
             foreach ($validated['guest_names'] as $guestName) {
                 GuestAttendance::create(['schedule_id' => $schedule->id, 'name' => $guestName]);
             }
@@ -361,52 +388,22 @@ class KomselController extends Controller
         return response()->json(['message' => $message]);
     }
 
-    public function assignKomsel(Request $request, $userId)
-    {
-        return back()->with('error', 'Fungsi "Assign Komsel" belum terhubung ke API lama.');
-    }
+    public function assignKomsel(Request $request, $userId) { return back()->with('error', 'Fitur belum tersedia.'); }
 
-    // --- BROADCAST HELPER (REAL-TIME FROM API) ---
-    // Logika: Ambil data dari API Cache -> Filter HP -> Kirim
     private function broadcastJadwalToKomsel($schedule)
     {
-        // 1. Ambil Data Jemaat dari Cache API (Cepat)
-        $allJemaat = Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, function () {
-            return $this->apiService->getAllJemaat() ?: [];
-        });
+        $allJemaat = Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, fn() => $this->apiService->getAllJemaat() ?: []);
 
-        // 2. Filter Jemaat berdasarkan Komsel ID
         $targetPhoneNumbers = collect($allJemaat)
             ->filter(function ($jemaat) use ($schedule) {
-                // Pastikan akses array aman
                 $jKomselId = is_array($jemaat) ? ($jemaat['komsel_id'] ?? null) : ($jemaat->komsel_id ?? null);
                 $jNoHp = is_array($jemaat) ? ($jemaat['no_hp'] ?? null) : ($jemaat->no_hp ?? null);
-
-                // Syarat: ID Komsel cocok DAN punya No HP valid
                 return $jKomselId == $schedule->komsel_id && !empty($jNoHp);
             })
-            ->pluck('no_hp') // Ambil hanya nomor HP
-            ->unique()       // Hapus duplikat
-            ->toArray();
+            ->pluck('no_hp')->unique()->toArray();
 
-        // 3. Kirim jika ada nomor tujuan
         if (!empty($targetPhoneNumbers)) {
-            $hariIndo = $schedule->day_of_week; 
-            
-            $pesan  = "*PENGUMUMAN JADWAL IBADAH KOMSEL*\n\n";
-            $pesan .= "Shalom, jadwal ibadah komsel baru telah dibuat:\n";
-            $pesan .= "🗓 Hari: " . $hariIndo . "\n";
-            $pesan .= "⏰ Waktu: " . $schedule->time . " WITA\n";
-            $pesan .= "📍 Lokasi: " . $schedule->location . "\n";
-            
-            if(!empty($schedule->description)) {
-                $pesan .= "📝 Ket: " . $schedule->description . "\n";
-            }
-            
-            $pesan .= "\nMohon kehadirannya tepat waktu. Tuhan Yesus Memberkati! 🙏";
-
-            // Kirim array nomor HP langsung ke FonnteService
-            // FonnteService akan menangani implode array menjadi string koma
+            $pesan  = "*PENGUMUMAN JADWAL KOMSEL*\n\n🗓 " . $schedule->day_of_week . "\n⏰ " . $schedule->time . " WITA\n📍 " . $schedule->location . "\n\n Tuhan Yesus Memberkati!";
             FonnteService::send($targetPhoneNumbers, $pesan);
         }
     }

@@ -233,7 +233,6 @@
 @php
     $user = Auth::user();
     $isSuperAdmin = in_array('super_admin', $user->roles ?? []);
-    // Cek Helper isLeaderKomsel() yang sudah ada di User.php
     $canManage = $isSuperAdmin || $user->isLeaderKomsel(); 
 @endphp
 
@@ -393,7 +392,7 @@
     </div>
 </div>
 
-{{-- Modal Absensi (Tetap Ada untuk Partner) --}}
+{{-- Modal Absensi --}}
 <div class="modal fade" id="absensiModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content shadow-lg rounded-4">
@@ -441,9 +440,11 @@
                     </div>
                 </form>
             </div>
+            
+            {{-- [FIX] TOMBOL SIMPAN DENGAN EVENT LISTENER DIRECT --}}
             <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
                 <button type="button" class="btn btn-light fw-medium" style="background: var(--hover-bg); color: var(--bs-body-color); border-color: var(--border-color);" data-bs-dismiss="modal">Batal</button>
-                <button type="submit" form="absensiForm" class="btn btn-success fw-bold px-4 rounded-pill shadow-sm">Simpan Data</button>
+                <button type="button" id="btnSaveAbsensi" class="btn btn-success fw-bold px-4 rounded-pill shadow-sm">Simpan Data</button>
             </div>
         </div>
     </div>
@@ -676,14 +677,17 @@ document.addEventListener('DOMContentLoaded', function() {
             editModal.querySelector('#editDayOfWeek').value = btn.getAttribute('data-day');
             editModal.querySelector('#editTime').value = btn.getAttribute('data-time');
             editModal.querySelector('#editLokasi').value = btn.getAttribute('data-location');
-            editModal.querySelector('#editStatus').value = btn.getAttribute('data-status');
+            
+            const statusVal = btn.getAttribute('data-status');
+            if(statusVal) editModal.querySelector('#editStatus').value = statusVal.trim();
+            
             editModal.querySelector('#editDescription').value = btn.getAttribute('data-description');
             let url = "{{ route('jadwal.update', ':id') }}".replace(':id', id);
             editModal.querySelector('#editForm').action = url;
         });
     }
 
-    // --- MODAL ABSENSI ---
+    // --- MODAL ABSENSI (FIXED LOGIC) ---
     const absensiModal = document.getElementById('absensiModal');
     if(absensiModal) {
         const listContainer = document.getElementById('daftarHadirContainer');
@@ -730,7 +734,6 @@ document.addEventListener('DOMContentLoaded', function() {
             countDisplay.textContent = '...';
 
             try {
-                // Fetch Anggota dari Controller (API) & Data Absensi
                 const [usersRes, attendRes] = await Promise.all([
                     fetch(`{{ url('/api/komsel') }}/${komselId}/users`), 
                     fetch(`{{ route('api.schedule.attendances.get', ':id') }}`.replace(':id', scheduleId))
@@ -742,23 +745,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 const attendData = await attendRes.json();
 
                 dropdown.innerHTML = '<option selected disabled value="">Pilih anggota...</option>';
-                usersData.users.forEach(u => {
-                    const opt = document.createElement('option');
-                    opt.value = u.id;
-                    opt.textContent = u.nama;
-                    dropdown.appendChild(opt);
-                });
+                if(usersData.users) {
+                    usersData.users.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.id;
+                        opt.textContent = u.nama;
+                        dropdown.appendChild(opt);
+                    });
+                }
 
                 listContainer.innerHTML = '';
-                // Load Existing Data
-                usersData.users.forEach(u => {
-                    if(attendData.present_users.some(p => p.id === u.id)) addToList(u.id, u.nama, false);
-                });
-                attendData.guests.forEach(g => addToList(g, g, true));
+                // Populate Existing Data
+                if(usersData.users) {
+                    usersData.users.forEach(u => {
+                        // Compare string/int safely
+                        if(attendData.present_users.some(p => parseInt(p.id) === parseInt(u.id))) {
+                            addToList(u.id, u.nama, false);
+                        }
+                    });
+                }
+                if(attendData.guests) {
+                    attendData.guests.forEach(g => addToList(g, g, true));
+                }
                 updateCount();
 
             } catch(err) {
-                listContainer.innerHTML = `<div class="p-3 text-center text-danger small">${err.message}</div>`;
+                console.error(err);
+                listContainer.innerHTML = `<div class="p-3 text-center text-danger small">Gagal memuat data.</div>`;
             }
         });
 
@@ -786,31 +799,61 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        document.getElementById('absensiForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
-
+        // [FIX] SAVE ABSENSI LOGIC (DIRECT FETCH)
+        document.getElementById('btnSaveAbsensi').addEventListener('click', async function() {
+            const submitBtn = this;
+            
             const scheduleId = document.getElementById('absensiScheduleId').value;
             const present_users = [];
             const guests = [];
 
             listContainer.querySelectorAll('.list-group-item').forEach(el => {
-                if(el.dataset.isGuest === 'true') guests.push(el.dataset.id);
-                else present_users.push(el.dataset.id);
+                const isGuest = el.getAttribute('data-is-guest') === 'true'; 
+                const idOrName = el.getAttribute('data-id');
+
+                if (isGuest) {
+                    guests.push(idOrName);
+                } else {
+                    present_users.push(parseInt(idOrName));
+                }
             });
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyimpan...';
 
             try {
                 const res = await fetch(`{{ route('api.schedule.attendances.store', ':id') }}`.replace(':id', scheduleId), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-                    body: JSON.stringify({ present_users, guests })
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 
+                        'Accept': 'application/json' 
+                    },
+                    body: JSON.stringify({ 
+                        present_users: present_users, 
+                        guest_names: guests 
+                    })
                 });
-                if(!res.ok) throw new Error("Gagal menyimpan.");
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    if (res.status === 422) {
+                        let errorMsg = "Validasi Gagal:\n";
+                        for (const [key, value] of Object.entries(data.errors)) {
+                            errorMsg += `- ${value}\n`;
+                        }
+                        throw new Error(errorMsg);
+                    } else {
+                        throw new Error(data.message || "Gagal menyimpan data.");
+                    }
+                }
+
+                // Success
                 bootstrap.Modal.getInstance(absensiModal).hide();
                 window.location.reload();
-            } catch(err) {
+
+            } catch (err) {
                 alert(err.message);
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Simpan Data';
@@ -837,14 +880,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 list.innerHTML = '';
                 let count = 0;
                 
-                data.present_users.forEach(u => {
-                    list.innerHTML += `<div class="list-group-item border-0 border-bottom bg-transparent px-0 py-2"><i class="bi bi-check-circle-fill text-success me-2"></i>${u.nama}</div>`;
-                    count++;
-                });
-                data.guests.forEach(g => {
-                    list.innerHTML += `<div class="list-group-item border-0 border-bottom bg-transparent px-0 py-2"><i class="bi bi-person-fill text-secondary me-2"></i>${g} <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.65em;">TAMU</span></div>`;
-                    count++;
-                });
+                if(data.present_users) {
+                    data.present_users.forEach(u => {
+                        list.innerHTML += `<div class="list-group-item border-0 border-bottom bg-transparent px-0 py-2"><i class="bi bi-check-circle-fill text-success me-2"></i>${u.nama}</div>`;
+                        count++;
+                    });
+                }
+                if(data.guests) {
+                    data.guests.forEach(g => {
+                        list.innerHTML += `<div class="list-group-item border-0 border-bottom bg-transparent px-0 py-2"><i class="bi bi-person-fill text-secondary me-2"></i>${g} <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.65em;">TAMU</span></div>`;
+                        count++;
+                    });
+                }
                 
                 totalEl.textContent = count;
                 if(count === 0) list.innerHTML = '<div class="p-4 text-center text-muted">Tidak ada kehadiran tercatat.</div>';
