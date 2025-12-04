@@ -116,10 +116,6 @@
                             <button type="submit" class="btn btn-primary btn-lg">Masuk</button>
                         </div>
                     </form>
-
-                    <div class="text-center mt-4">
-                        <p class="text-secondary">Belum punya akun? <a href="{{ route('signup') }}" class="link-primary text-decoration-none fw-medium">Daftar Sekarang</a></p>
-                    </div>
                 </div>
             </div>
         </div>

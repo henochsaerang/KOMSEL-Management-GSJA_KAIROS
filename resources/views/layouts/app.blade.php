@@ -360,12 +360,7 @@
                             <div class="text-end d-none d-md-block" style="line-height: 1.2;">
                                 <small class="d-block fw-bold text-body">{{ Auth::user()->name }}</small>
                                 <small class="text-muted" style="font-size: 0.75rem;">
-                                    @php
-                                        $roles = session('user_roles', []);
-                                        $roleDisplay = !empty($roles) ? ucfirst($roles[0]) : 'Jemaat';
-                                        if($user->is_coordinator) $roleDisplay = 'Koordinator';
-                                    @endphp
-                                    {{ $roleDisplay }}
+                                   
                                 </small>
                             </div>
                             <div class="avatar-initials rounded-circle">{{ Auth::user()->initials ?? substr(Auth::user()->name, 0, 2) }}</div>
