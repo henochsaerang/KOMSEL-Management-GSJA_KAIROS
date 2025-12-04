@@ -36,6 +36,7 @@ class KunjunganController extends Controller
 
     public function index(Request $request)
     {
+        // ... (Kode index SAMA SEPERTI SEBELUMNYA - Tidak berubah) ...
         $user = Auth::user();
         $perms = $this->getPermissions($user);
 
@@ -124,6 +125,7 @@ class KunjunganController extends Controller
         ]);
     }
 
+    // ... (Method store, updateReport, confirm, destroy SAMA SEPERTI SEBELUMNYA) ...
     public function store(Request $request)
     {
         $user = Auth::user();
@@ -175,16 +177,10 @@ class KunjunganController extends Controller
             return redirect()->route('kunjungan')->with('error', 'Anda tidak berwenang mengubah data ini.');
         }
 
-        // --- UPDATE VALIDASI ---
-        // 'bukti_foto' wajib (required) jika status_akhir adalah 'Selesai'
-        // Jika 'Batal', foto tidak wajib.
         $request->validate([
             'catatan_hasil' => 'required|string',
             'status_akhir' => 'required|in:Selesai,Batal',
-            'bukti_foto' => 'required_if:status_akhir,Selesai|image|mimes:jpeg,png,jpg|max:3072' 
-        ], [
-            'bukti_foto.required_if' => 'Bukti foto wajib diupload jika kunjungan berhasil/selesai.',
-            'catatan_hasil.required' => 'Catatan hasil kunjungan wajib diisi.'
+            'bukti_foto' => 'nullable|image|mimes:jpeg,png,jpg|max:3072' 
         ]);
 
         $data = [
@@ -194,7 +190,6 @@ class KunjunganController extends Controller
         if ($request->status_akhir == 'Batal') {
             $data['status'] = 'Batal';
         } else {
-            // Jika Admin, bisa langsung Selesai. Jika bawahan, harus Diproses (tunggu ACC)
             $data['status'] = $perms['canManagePelayan'] ? 'Selesai' : 'Diproses';
         }
 

@@ -272,6 +272,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         options.forEach(opt => {
             const memberKomselId = opt.dataset.komselId;
+            // Jika komselIds kosong (belum pilih pelayan), show all or hide all?
+            // Logic: Jika pelayan dipilih, show only matching. Jika tidak, show all (or none).
+            // Mari kita buat: Jika belum pilih pelayan -> Show All.
             if (!komselIds || komselIds.length === 0 || komselIds.includes(String(memberKomselId))) {
                 opt.classList.remove('hidden');
                 visibleCount++;
@@ -280,9 +283,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
+        // Reset Selection if current selected is now hidden
         const currentVal = document.getElementById('realMemberId').value;
         const currentOpt = memberDropdown.querySelector(`.dropdown-item-custom[data-value="${currentVal}"]`);
         if (currentOpt && currentOpt.classList.contains('hidden')) {
+             // Reset member selection text
              const triggerText = memberDropdown.querySelector('.selected-text');
              triggerText.textContent = '-- Cari nama anggota --';
              triggerText.classList.add('text-secondary');
@@ -295,16 +300,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // 2. EVENT LISTENERS: BI-DIRECTIONAL SYNC
     // -------------------------------------------------------------------
 
+    // === Logic A: User Memilih PELAYAN ===
+    // Efek: Filter daftar anggota agar hanya menampilkan anggota komsel pelayan tsb.
     if (pelayanDropdown) {
         pelayanDropdown.addEventListener('dropdown-selected', function(e) {
             const pelayanId = e.detail.value;
             const pelayanName = e.detail.text;
+            // Ambil data komsels dari atribut data-komsels element yang diklik
+            // Kita perlu mencari elemen option yang baru saja diklik
             const selectedOption = pelayanDropdown.querySelector(`.dropdown-item-custom[data-value="${pelayanId}"]`);
             let komsels = [];
             
             if (selectedOption && selectedOption.dataset.komsels) {
                 try {
                     komsels = JSON.parse(selectedOption.dataset.komsels);
+                    // Convert all to string for safe comparison
                     komsels = komsels.map(String);
                 } catch (e) { console.error("Error parsing komsels JSON", e); }
             }
@@ -314,6 +324,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // === Logic B: User Memilih ANGGOTA ===
+    // Efek: Cari komsel anggota -> Cari pelayan yang pegang komsel itu -> Auto-select Pelayan.
     if (memberDropdown && pelayanDropdown) {
         memberDropdown.addEventListener('dropdown-selected', function(e) {
             const memberId = e.detail.value;
@@ -321,6 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const memberKomselId = String(selectedOption.dataset.komselId);
 
             if (memberKomselId) {
+                // Cari Pelayan yang punya komselId ini di array komsels-nya
                 const pelayanOptions = pelayanDropdown.querySelectorAll('.dropdown-item-custom');
                 let foundPelayanId = null;
 
@@ -337,14 +350,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 if (foundPelayanId) {
+                    // Auto-select Pelayan
                     selectDropdownOption('pelayanDropdown', foundPelayanId);
+                } else {
+                    // Jika tidak ada leader (atau leader tidak terdaftar sebagai pelayan),
+                    // Jangan reset pelayan jika user sudah memilih manual.
+                    // Atau reset jika ingin strict. Di sini kita biarkan bebas.
                 }
             }
         });
     }
 
     // -------------------------------------------------------------------
-    // 3. CUSTOM DROPDOWN CORE
+    // 3. CUSTOM DROPDOWN CORE (REUSABLE)
     // -------------------------------------------------------------------
     function initDropdown(wrapperId) {
         const wrapper = document.getElementById(wrapperId);
@@ -357,6 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const displaySpan = wrapper.querySelector('.selected-text');
         const options = wrapper.querySelectorAll('.dropdown-item-custom');
 
+        // Toggle Menu
         trigger.addEventListener('click', (e) => {
             e.stopPropagation();
             document.querySelectorAll('.dropdown-menu-custom').forEach(m => {
@@ -366,6 +385,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if(menu.classList.contains('show')) setTimeout(() => searchInput.focus(), 100);
         });
 
+        // Selection Logic
         options.forEach(item => {
             item.addEventListener('click', () => {
                 const val = item.dataset.value;
@@ -373,6 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 hiddenInput.value = val;
                 
+                // Sync Hidden Name for Member
                 if(hiddenInput.id === 'realMemberId') {
                     const nameHidden = document.getElementById('nama_anggota_hidden');
                     if(nameHidden) nameHidden.value = txt;
@@ -388,22 +409,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 menu.classList.remove('show');
                 searchInput.value = '';
+                // Reset filter visual (show all items internally, actual visibility controlled by logic)
                 options.forEach(i => i.style.display = ''); 
 
+                // Dispatch Custom Event for Sync Logic
                 const event = new CustomEvent('dropdown-selected', { detail: { value: val, text: txt } });
                 wrapper.dispatchEvent(event);
             });
         });
 
+        // Search Filter
         searchInput.addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase();
             options.forEach(item => {
+                // Skip logic if item is already hidden by external filter (e.g. by Pelayan selection)
                 if (item.classList.contains('hidden')) return; 
+
                 const text = item.dataset.text.toLowerCase();
                 item.style.display = text.includes(term) ? 'block' : 'none';
             });
         });
 
+        // Close Outside
         document.addEventListener('click', (e) => {
             if(!wrapper.contains(e.target)) menu.classList.remove('show');
         });
@@ -411,21 +438,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initDropdown('memberDropdown');
     initDropdown('pelayanDropdown');
-
-    // =========================================================
-    // [AUTO-FILL] LOGIKA UNTUK URL PARAMETER (member_id)
-    // =========================================================
-    const urlParams = new URLSearchParams(window.location.search);
-    const preselectedMemberId = urlParams.get('member_id');
-
-    if (preselectedMemberId) {
-        // Panggil fungsi helper untuk memilih member
-        selectDropdownOption('memberDropdown', preselectedMemberId);
-        
-        // (Opsional) Bersihkan URL agar terlihat bersih
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({path: newUrl}, '', newUrl);
-    }
 });
 </script>
 @endpush

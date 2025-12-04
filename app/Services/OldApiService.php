@@ -24,41 +24,25 @@ class OldApiService
             ]);
 
             if ($response->failed() || $response->json('status') !== true) {
-                Log::error('API Login Gagal (login_user)', [
-                    'email' => $email, 
-                    'response' => $response->json() ?? $response->body()
-                ]);
+                Log::error('API Login Gagal', ['email' => $email]);
                 return null;
             }
             return ['user' => $response->json('user')];
         } catch (ConnectionException $e) {
-            Log::error('API Login Connection Error', ['error' => $e->getMessage()]);
+            Log::error('API Connection Error', ['error' => $e->getMessage()]);
             return null;
         }
     }
 
-    public function logout(): void
-    {
-        // Tidak perlu call API
-    }
-
-    // --- Endpoint Data ---
+    public function logout(): void {}
 
     public function getAllJemaat(): ?array
     {
         try {
-            $response = Http::timeout(180)
-                            ->post("{$this->baseUrl}/get-all-jemaat-for-sync");
-            
-            if ($response->failed() || $response->json('status') !== true) {
-                 Log::error('API getAllJemaat Gagal', ['response' => $response->json() ?? $response->body()]);
-                return null;
-            }
-            
-            // [FIX] Kembalikan ke key JSON yang benar: 'data_jemaat'
+            $response = Http::timeout(180)->post("{$this->baseUrl}/get-all-jemaat-for-sync");
+            if ($response->failed() || $response->json('status') !== true) return null;
             $data = $response->json('data_jemaat'); 
             return is_array($data) ? $data : null; 
-
         } catch (\Exception $e) {
             Log::error('API getAllJemaat Error', ['error' => $e->getMessage()]);
             return null;
@@ -68,13 +52,8 @@ class OldApiService
     public function getAllKomsels(): ?array
     {
         try {
-            $response = Http::timeout(30)
-                            ->post("{$this->baseUrl}/get-all-komsels-for-sync");
-
-            if ($response->failed() || $response->json('status') !== true) {
-                Log::error('API getAllKomsels Gagal', ['response' => $response->json() ?? $response->body()]);
-                return null;
-            }
+            $response = Http::timeout(30)->post("{$this->baseUrl}/get-all-komsels-for-sync");
+            if ($response->failed() || $response->json('status') !== true) return null;
             $data = $response->json('data_komsel');
             return is_array($data) ? $data : null;
         } catch (\Exception $e) {
@@ -86,11 +65,9 @@ class OldApiService
     public function getAllLeaders(): ?array
     {
         try {
-            $response = Http::timeout(60) 
-                            ->post("{$this->baseUrl}/get-all-leaders-for-sync");
-
+            $response = Http::timeout(60)->post("{$this->baseUrl}/get-all-leaders-for-sync");
             if ($response->failed() || $response->json('status') !== true) {
-                Log::error('API getAllLeaders Gagal', ['response' => $response->json() ?? $response->body()]);
+                Log::error('API getAllLeaders Gagal', ['response' => $response->body()]);
                 return null;
             }
             $data = $response->json('data_pemimpin');
@@ -104,11 +81,9 @@ class OldApiService
     public function getAllOikosPelayan(): ?array
     {
         try {
-            $response = Http::timeout(60) 
-                            ->post("{$this->baseUrl}/get-oikos-pelayan-for-sync");
-
+            $response = Http::timeout(60)->post("{$this->baseUrl}/get-oikos-pelayan-for-sync");
             if ($response->failed() || $response->json('status') !== true) {
-                Log::error('API getAllOikosPelayan Gagal', ['response' => $response->json() ?? $response->body()]);
+                Log::error('API getAllOikosPelayan Gagal', ['response' => $response->body()]);
                 return null;
             }
             $data = $response->json('data_pelayan');

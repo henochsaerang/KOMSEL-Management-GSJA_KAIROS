@@ -34,7 +34,8 @@
 
     /* === INPUT GROUP STYLE (FLATPICKR) === */
     .input-group-text { background-color: var(--input-bg); border-color: var(--border-color); color: var(--text-secondary); }
-    .form-control.bg-light { background-color: var(--input-bg) !important; border-color: var(--border-color); color: var(--bs-body-color); }
+    .input-date-custom { background-color: #fff !important; border-color: var(--border-color); color: var(--bs-body-color); }
+    
     .flatpickr-calendar { background: var(--element-bg); border-color: var(--border-color); box-shadow: var(--shadow-md); }
     .flatpickr-day { color: var(--bs-body-color); }
     .flatpickr-day.flatpickr-disabled { color: var(--text-secondary); opacity: 0.3; }
@@ -168,7 +169,20 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <span @class(['badge', 'text-bg-warning' => $visit->status == 'Direncanakan', 'text-bg-primary' => $visit->status == 'Berlangsung', 'text-bg-info' => $visit->status == 'Diproses', 'text-bg-success' => $visit->status == 'Selesai', 'text-bg-danger' => $visit->status == 'Gagal', 'text-bg-secondary' => $visit->status == 'Revisi'])>{{ $visit->status }}</span>
+                                        <span @class([
+                                            'badge', 
+                                            'text-bg-warning' => $visit->status == 'Direncanakan', 
+                                            'text-bg-primary' => $visit->status == 'Berlangsung', 
+                                            'text-bg-info' => $visit->status == 'Diproses', 
+                                            'text-bg-success' => $visit->status == 'Selesai', 
+                                            'text-bg-danger' => $visit->status == 'Gagal', 
+                                            'text-bg-secondary' => $visit->status == 'Revisi' || $visit->status == 'Menunggu Persetujuan'
+                                        ])>
+                                            @if($visit->status == 'Berlangsung') Draft
+                                            @elseif($visit->status == 'Menunggu Persetujuan') Menunggu ACC
+                                            @else {{ $visit->status }}
+                                            @endif
+                                        </span>
                                     </td>
                                     <td>
                                         <div class="d-flex align-items-center text-secondary">
@@ -183,20 +197,25 @@
                                                 <li><a class="dropdown-item rounded-2 py-2 mb-1" href="#" data-bs-toggle="modal" data-bs-target="#viewLaporanModal" data-visit-id="{{ $visit->id }}"><i class="bi bi-eye me-2 text-primary"></i>Detail</a></li>
                                                 
                                                 @php $isUnlocked = $visit->report_unlock_until && \Carbon\Carbon::now()->lte($visit->report_unlock_until); @endphp
-                                                @if(in_array($visit->status, ['Direncanakan', 'Diproses', 'Revisi']))
-                                                    @if($isReportDay || $visit->status == 'Revisi' || $isUnlocked)
+                                                
+                                                {{-- LOGIKA TOMBOL INPUT LAPORAN (TERMASUK UNTUK DRAFT/REVISI) --}}
+                                                {{-- Status "Menunggu Persetujuan" TIDAK BOLEH isi laporan --}}
+                                                @if(in_array($visit->status, ['Direncanakan', 'Berlangsung', 'Revisi']))
+                                                    @if($isReportDay || $visit->status == 'Revisi' || $isUnlocked || $visit->status == 'Berlangsung')
                                                         <li>
-                                                            {{-- TOMBOL INPUT LAPORAN (Dengan Flag Unlock) --}}
                                                             <a class="dropdown-item rounded-2 py-2 mb-1" href="#" 
                                                                data-bs-toggle="modal" 
                                                                data-bs-target="#laporanModal" 
                                                                data-visit-id="{{ $visit->id }}" 
                                                                data-oikos-nama="{{ $visit->jemaat_data['nama'] ?? $visit->oikos_name }}" 
                                                                data-revision-note="{{ $visit->status == 'Revisi' ? $visit->revision_comment : '' }}"
-                                                               data-is-unlocked="{{ $isUnlocked ? '1' : '0' }}"> {{-- Kirim status unlock ke JS --}}
+                                                               data-is-unlocked="{{ $isUnlocked ? '1' : '0' }}"
+                                                               data-visit-status="{{ $visit->status }}">
                                                                 
                                                                 @if($visit->status == 'Revisi') 
                                                                     <span class="text-danger fw-bold"><i class="bi bi-exclamation-circle me-2"></i>Perbaiki</span> 
+                                                                @elseif($visit->status == 'Berlangsung')
+                                                                    <span class="text-primary fw-bold"><i class="bi bi-pencil-square me-2"></i>Lanjutkan</span>
                                                                 @else 
                                                                     <i class="bi bi-pencil-square me-2 text-warning"></i>Input Laporan 
                                                                 @endif
@@ -206,11 +225,26 @@
                                                     <li><a class="dropdown-item rounded-2 py-2 mb-1 text-secondary" href="#" data-bs-toggle="modal" data-bs-target="#modalDelegate{{ $visit->id }}"><i class="bi bi-person-bounding-box me-2"></i>Ganti Pelayan</a></li>
                                                 @endif
 
-                                                @if($visit->status == 'Diproses' && Auth::check() && is_array(Auth::user()->roles) && in_array('super_admin', Auth::user()->roles))
-                                                    <li><hr class="dropdown-divider"></li>
-                                                    <li><button type="submit" form="confirmForm{{$visit->id}}" class="dropdown-item rounded-2 py-2 text-success fw-bold bg-success bg-opacity-10 mb-1"><i class="bi bi-check-circle-fill me-2"></i>Konfirmasi</button></li>
-                                                    <li><button type="button" class="dropdown-item rounded-2 py-2 text-danger fw-bold bg-danger bg-opacity-10" data-bs-toggle="modal" data-bs-target="#modalRevision{{ $visit->id }}"><i class="bi bi-arrow-counterclockwise me-2"></i>Revisi</button></li>
+                                                {{-- KHUSUS ADMIN: APPROVE JADWAL / KONFIRMASI LAPORAN --}}
+                                                @if(Auth::check() && is_array(Auth::user()->roles) && in_array('super_admin', Auth::user()->roles))
+                                                    {{-- Approve Request Jadwal --}}
+                                                    @if($visit->status == 'Menunggu Persetujuan')
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li>
+                                                            <a href="{{ route('oikos.approve_schedule', $visit->id) }}" class="dropdown-item rounded-2 py-2 text-success fw-bold bg-success bg-opacity-10 mb-1">
+                                                                <i class="bi bi-check2-all me-2"></i>Setujui Jadwal
+                                                            </a>
+                                                        </li>
+                                                    @endif
+
+                                                    {{-- Konfirmasi Laporan Selesai --}}
+                                                    @if($visit->status == 'Diproses')
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li><button type="submit" form="confirmForm{{$visit->id}}" class="dropdown-item rounded-2 py-2 text-success fw-bold bg-success bg-opacity-10 mb-1"><i class="bi bi-check-circle-fill me-2"></i>Konfirmasi</button></li>
+                                                        <li><button type="button" class="dropdown-item rounded-2 py-2 text-danger fw-bold bg-danger bg-opacity-10" data-bs-toggle="modal" data-bs-target="#modalRevision{{ $visit->id }}"><i class="bi bi-arrow-counterclockwise me-2"></i>Revisi</button></li>
+                                                    @endif
                                                 @endif
+
                                                 <li><hr class="dropdown-divider"></li>
                                                 <li><form action="{{ route('oikos.destroy', $visit->id) }}" method="POST" onsubmit="return confirm('Hapus data ini?');">@csrf @method('DELETE')<button type="submit" class="dropdown-item rounded-2 py-2 text-danger"><i class="bi bi-trash me-2"></i>Hapus</button></form></li>
                                             </ul>
@@ -219,7 +253,7 @@
                                     </td>
                                 </tr>
 
-                                {{-- MODAL DELEGASI & REVISI (Tetap sama) --}}
+                                {{-- MODAL DELEGASI & REVISI (TETAP SAMA) --}}
                                 <div class="modal fade" id="modalDelegate{{ $visit->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form action="{{ route('oikos.delegate', $visit->id) }}" method="POST">@csrf @method('PATCH')<div class="modal-content border-0 shadow"><div class="modal-header bg-warning bg-opacity-10 border-0"><h5 class="modal-title fw-bold text-dark">Delegasi / Ganti Pelayan</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body p-4"><div class="alert alert-info small mb-3 border-0 bg-info bg-opacity-10 text-info"><i class="bi bi-info-circle-fill me-1"></i> Pelayan pengganti akan ditugaskan.</div><div class="mb-3"><label class="form-label fw-bold small text-uppercase text-secondary">Pelayan Pengganti</label><select name="new_pelayan_id" class="form-select" required><option value="" disabled selected>Pilih Pengganti...</option>@if(isset($pelayans))@foreach($pelayans as $p)<option value="{{ $p['id'] }}">{{ $p['nama'] }}</option>@endforeach @endif</select></div><div class="mb-3"><label class="form-label fw-bold small text-uppercase text-secondary">Alasan Penggantian</label><textarea name="replacement_reason" class="form-control" rows="3" required minlength="5"></textarea></div></div><div class="modal-footer border-0 pt-0 px-4 pb-4"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-warning px-4 fw-bold">Simpan</button></div></div></form></div></div>
                                 @if(Auth::check() && is_array(Auth::user()->roles) && in_array('super_admin', Auth::user()->roles))
                                 <div class="modal fade" id="modalRevision{{ $visit->id }}" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form action="{{ route('oikos.revision', $visit->id) }}" method="POST">@csrf @method('PATCH')<div class="modal-content border-0 shadow"><div class="modal-header bg-danger bg-opacity-10 border-0"><h5 class="modal-title fw-bold text-danger">Kembalikan untuk Revisi</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body p-4"><div class="alert alert-warning small mb-3 border-0 bg-warning bg-opacity-10 text-dark"><i class="bi bi-exclamation-triangle-fill me-1"></i> Laporan akan dikembalikan ke status <b>Revisi</b>.</div><div class="mb-3"><label class="form-label fw-bold text-secondary text-uppercase small">Catatan Revisi <span class="text-danger">*</span></label><textarea name="revision_comment" class="form-control" rows="4" required minlength="5"></textarea></div></div><div class="modal-footer border-0 pt-0 px-4 pb-4"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-danger px-4 fw-bold">Kirim Revisi</button></div></div></form></div></div>
@@ -244,7 +278,7 @@
         </div>
     </div>
     
-    {{-- MODAL INPUT LAPORAN (DESAIN BARU) --}}
+    {{-- MODAL INPUT LAPORAN (DENGAN DUA TOMBOL SUBMIT) --}}
     <div class="modal fade" id="laporanModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content rounded-4 border-0 shadow-lg">
@@ -254,13 +288,9 @@
                 </div>
                 <div class="modal-body pt-4">
                     
-                    {{-- Alert Revisi --}}
                     <div id="revisionAlertBox" class="alert alert-danger d-flex align-items-start mb-4 d-none border-0 bg-danger bg-opacity-10 text-danger">
                         <i class="bi bi-exclamation-circle-fill fs-5 me-3 mt-1"></i>
-                        <div>
-                            <div class="fw-bold text-uppercase small mb-1">Perlu Revisi</div>
-                            <div id="revisionNoteText" class="small text-dark"></div>
-                        </div>
+                        <div><div class="fw-bold text-uppercase small mb-1">Perlu Revisi</div><div id="revisionNoteText" class="small text-dark"></div></div>
                     </div>
 
                     <form id="laporanForm" method="POST" enctype="multipart/form-data">
@@ -268,15 +298,11 @@
                         <div class="mb-4">
                             <h6 class="text-uppercase text-secondary fw-bold small mb-3">Realisasi</h6>
                             
-                            {{-- [DESAIN BARU] TANGGAL KUNJUNGAN --}}
                             <div class="mb-3">
                                 <label class="form-label small fw-bold">Tanggal Kunjungan</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0" style="background-color: var(--input-bg); border-color: var(--border-color); color: var(--text-secondary);">
-                                        <i class="bi bi-calendar-event"></i>
-                                    </span>
-                                    {{-- Placeholder akan dihandle oleh Flatpickr --}}
-                                    <input type="text" id="realisasi_date" name="realisasi_date" class="form-control border-start-0 ps-0 bg-light" placeholder="Pilih tanggal..." required style="border-left: 0;">
+                                    <span class="input-group-text bg-white border-end-0 text-secondary"><i class="bi bi-calendar-event"></i></span>
+                                    <input type="text" id="realisasi_date" name="realisasi_date" class="form-control border-start-0 ps-0 input-date-custom" placeholder="Pilih tanggal...">
                                 </div>
                             </div>
                             
@@ -287,16 +313,23 @@
                                         <label class="form-check-label fw-semibold" for="is_doa_5_jari">Doa 5 Jari</label>
                                     </div>
                                     <div id="dateInputContainerDLJ" class="d-none mt-2">
-                                        <input type="date" id="realisasi_doa_5_jari_date" name="realisasi_doa_5_jari_date" class="form-control form-control-sm">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-white border-end-0 text-secondary"><i class="bi bi-calendar2-check"></i></span>
+                                            <input type="text" id="realisasi_doa_5_jari_date" name="realisasi_doa_5_jari_date" class="form-control border-start-0 ps-0 input-date-custom" placeholder="Tgl. Doa...">
+                                        </div>
                                     </div>
                                 </div>
+
                                 <div class="flex-fill p-3 rounded-3 border bg-light">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="is_doa_syafaat" name="is_doa_syafaat" value="1">
                                         <label class="form-check-label fw-semibold" for="is_doa_syafaat">Doa Syafaat</label>
                                     </div>
                                     <div id="dateInputContainerDS" class="d-none mt-2">
-                                        <input type="date" id="realisasi_doa_syafaat_date" name="realisasi_doa_syafaat_date" class="form-control form-control-sm">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-white border-end-0 text-secondary"><i class="bi bi-calendar2-check"></i></span>
+                                            <input type="text" id="realisasi_doa_syafaat_date" name="realisasi_doa_syafaat_date" class="form-control border-start-0 ps-0 input-date-custom" placeholder="Tgl. Doa...">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -339,32 +372,31 @@
                             <h6 class="text-uppercase text-secondary fw-bold small mb-3">Hasil & Respon</h6>
                             <div class="p-3 bg-light rounded-3 mb-3">
                                 <label class="form-label small fw-bold mb-2">Respon Terhadap Injil</label>
-                                <select name="respon_injil" class="form-select">
-                                    <option value="" selected disabled>Pilih Respon...</option>
-                                    <option value="bermusuhan">a. Sikap Bermusuhan</option>
-                                    <option value="netral">b. Netral</option>
-                                    <option value="tertarik">c. Tertarik</option>
-                                    <option value="tertarik_murni">d. Tertarik Murni</option>
-                                    <option value="keputusan">e. Keputusan</option>
-                                </select>
+                                <select name="respon_injil" id="respon_injil" class="form-select"><option value="" selected disabled>Pilih Respon...</option><option value="bermusuhan">a. Sikap Bermusuhan</option><option value="netral">b. Netral</option><option value="tertarik">c. Tertarik</option><option value="tertarik_murni">d. Tertarik Murni</option><option value="keputusan">e. Keputusan</option></select>
                             </div>
-                            
                             <div>
                                 <label for="catatan" class="form-label small fw-bold">Catatan Tambahan</label>
                                 <textarea id="catatan" name="catatan" rows="3" class="form-control bg-light" placeholder="Ceritakan hal menarik lainnya..."></textarea>
                             </div>
                         </div>
+                        
+                        {{-- TOMBOL AKSI MODAL --}}
+                        <div class="d-flex justify-content-between pt-3 border-top">
+                            <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Batal</button>
+                            <div class="d-flex gap-2">
+                                {{-- Tombol Simpan Draft (formnovalidate) --}}
+                                <button type="submit" name="action" value="draft" class="btn btn-warning text-white fw-bold" formnovalidate>Simpan Sementara</button>
+                                {{-- Tombol Kirim Final --}}
+                                <button type="submit" name="action" value="submit" class="btn btn-primary px-4 fw-bold rounded-pill">Kirim Laporan</button>
+                            </div>
+                        </div>
                     </form>
-                </div>
-                <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
-                    <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" form="laporanForm" class="btn btn-primary px-4 fw-bold rounded-pill">Kirim Laporan</button>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Modal Lihat Laporan (DENGAN TOMBOL UNLOCK) --}}
+    {{-- Modal Lihat Laporan --}}
     <div class="modal fade" id="viewLaporanModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content rounded-4 border-0 shadow-lg">
@@ -376,7 +408,6 @@
                     <p class="text-center text-secondary py-5">Memuat Laporan...</p>
                 </div>
                 <div class="modal-footer border-top-0 d-flex justify-content-between">
-                    {{-- Form Request Unlock --}}
                     <form id="formRequestUnlock" method="POST" class="d-none">
                         @csrf @method('PATCH')
                         <button type="submit" class="btn btn-outline-warning fw-bold text-dark border-2 rounded-pill px-3" onclick="return confirm('Minta Admin membuka akses laporan untuk data ini?')">
@@ -438,7 +469,18 @@ document.addEventListener('DOMContentLoaded', function() {
             tableRows.forEach(row => {
                 if (row.id === 'empty-row') return; 
                 const rowStatus = row.dataset.status; 
-                if (filterValue === 'all' || rowStatus === filterValue) {
+                // Logika Filter: 'Berlangsung' (Draft) ditampilkan di tab 'Direncanakan'
+                // 'Menunggu Persetujuan' ditampilkan di tab 'Direncanakan' juga
+                let showRow = false;
+
+                if (filterValue === 'all') showRow = true;
+                else if (filterValue === 'Direncanakan') {
+                    showRow = (rowStatus === 'Direncanakan' || rowStatus === 'Berlangsung' || rowStatus === 'Menunggu Persetujuan');
+                } else {
+                    showRow = (rowStatus === filterValue);
+                }
+
+                if (showRow) {
                     row.style.display = ''; visibleRows++;
                 } else {
                     row.style.display = 'none';
@@ -448,30 +490,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // --- LOGIKA MODAL INPUT LAPORAN (FLATPICKR + UNLOCK CHECK) ---
+    // --- LOGIKA MODAL INPUT LAPORAN (POPULATE DATA DRAFT) ---
     const laporanModalEl = document.getElementById('laporanModal');
-    let fpInstance = null; // Store Flatpickr instance
+    let fpInstances = [];
 
     if (laporanModalEl) {
         const laporanForm = document.getElementById('laporanForm');
         const revisionAlertBox = document.getElementById('revisionAlertBox');
         const revisionNoteText = document.getElementById('revisionNoteText');
 
-        laporanModalEl.addEventListener('show.bs.modal', function (event) {
+        laporanModalEl.addEventListener('show.bs.modal', async function (event) {
             const button = event.relatedTarget;
             const oikosNama = button.getAttribute('data-oikos-nama');
             const visitId = button.getAttribute('data-visit-id');
             const revisionNote = button.getAttribute('data-revision-note');
             
-            // [LOGIKA BARU] Cek Status Unlock
             const isUnlocked = button.getAttribute('data-is-unlocked') === '1';
+            const visitStatus = button.getAttribute('data-visit-status'); 
             
             const modalTitle = laporanModalEl.querySelector('#laporanModalLabel');
             let url = "{{ route('oikos.report.store', ':id') }}";
             url = url.replace(':id', visitId);
             laporanForm.action = url;
 
-            // Setup Tampilan Revisi
             if (revisionNote) {
                 modalTitle.textContent = `Perbaiki Laporan: ${oikosNama}`;
                 modalTitle.classList.add('text-danger');
@@ -483,32 +524,77 @@ document.addEventListener('DOMContentLoaded', function() {
                 revisionAlertBox.classList.add('d-none');
             }
 
-            // [LOGIKA BARU] Initialize Flatpickr dengan Aturan Tanggal
-            if (fpInstance) fpInstance.destroy(); // Hancurkan instance lama agar bersih
+            // POPULATE DATA DRAFT DARI API (PENTING!)
+            try {
+                const response = await fetch(`/api/oikos-visits/${visitId}`);
+                const data = await response.json();
+
+                // Isi Form dengan data dari database (Draft)
+                if (data.realisasi_date) {
+                    fpInstances[0].setDate(data.realisasi_date); // realisasi_date index 0
+                }
+                document.getElementById('tindakan_cinta_desc').value = data.tindakan_cinta_desc || '';
+                document.getElementById('tindakan_peduli_desc').value = data.tindakan_peduli_desc || '';
+                document.getElementById('respon_injil').value = data.respon_injil || '';
+                document.getElementById('catatan').value = data.catatan || '';
+
+                // Handle Checkbox & Hidden Container
+                const doa5 = document.getElementById('is_doa_5_jari');
+                doa5.checked = !!data.is_doa_5_jari;
+                doa5.dispatchEvent(new Event('change')); // Trigger toggle UI
+                if(data.realisasi_doa_5_jari_date && fpInstances[1]) fpInstances[1].setDate(data.realisasi_doa_5_jari_date);
+
+                const doaS = document.getElementById('is_doa_syafaat');
+                doaS.checked = !!data.is_doa_syafaat;
+                doaS.dispatchEvent(new Event('change'));
+                if(data.realisasi_doa_syafaat_date && fpInstances[2]) fpInstances[2].setDate(data.realisasi_doa_syafaat_date);
+
+                // Handle Tindakan Toggle (Jika ada desc/foto, nyalakan switch)
+                const cintaSwitch = document.getElementById('tindakanCintaOikos');
+                cintaSwitch.checked = !!(data.tindakan_cinta_desc || data.tindakan_cinta_photo_path);
+                cintaSwitch.dispatchEvent(new Event('change'));
+
+                const peduliSwitch = document.getElementById('tindakanPedulihOikos');
+                peduliSwitch.checked = !!(data.tindakan_peduli_desc || data.tindakan_peduli_photo_path);
+                peduliSwitch.dispatchEvent(new Event('change'));
+
+            } catch (error) {
+                console.error('Gagal mengambil draft:', error);
+            }
+
+            // --- LOGIKA KALENDER ---
+            fpInstances.forEach(fp => fp.destroy());
+            fpInstances = [];
             
-            fpInstance = flatpickr("#realisasi_date", {
-                locale: "id",
-                dateFormat: "Y-m-d",
+            const today = new Date();
+            const day = today.getDay(); 
+            const diffToMonday = (day === 0 ? -6 : 1) - day;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + diffToMonday);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+
+            const fpConfig = {
+                locale: "id", dateFormat: "Y-m-d", minDate: "today", maxDate: sunday,
                 disable: [
                     function(date) {
-                        const day = date.getDay();
-                        // Jika Unlock: Enable Semua Hari (Return False = Tidak didisable)
-                        if (isUnlocked) return false;
-                        
-                        // Jika Normal: Enable Hanya Rabu(3), Kamis(4), Jumat(5), Sabtu(6)
-                        // Return True untuk disable (jadi return true jika BUKAN hari tersebut)
-                        return !(day === 3 || day === 4 || day === 5 || day === 6);
+                        const d = date.getDay();
+                        // Draft/Revisi Boleh Kapan Saja
+                        if (isUnlocked || visitStatus === 'Revisi' || visitStatus === 'Berlangsung') return false; 
+                        return !(d === 3 || d === 4 || d === 5 || d === 6);
                     }
                 ]
-            });
+            };
+
+            fpInstances.push(flatpickr("#realisasi_date", fpConfig));
+            fpInstances.push(flatpickr("#realisasi_doa_5_jari_date", fpConfig));
+            fpInstances.push(flatpickr("#realisasi_doa_syafaat_date", fpConfig));
         });
 
         laporanModalEl.addEventListener('hidden.bs.modal', function () {
             laporanForm.reset();
-            document.getElementById('dateInputContainerDLJ').classList.add('d-none');
-            document.getElementById('dateInputContainerDS').classList.add('d-none');
-            document.getElementById('hiddenInputContainerTCO').classList.add('d-none');
-            document.getElementById('hiddenInputContainerTPO').classList.add('d-none');
+            // Sembunyikan container
+            document.querySelectorAll('#dateInputContainerDLJ, #dateInputContainerDS, #hiddenInputContainerTCO, #hiddenInputContainerTPO').forEach(el => el.classList.add('d-none'));
         });
     }
 
@@ -524,7 +610,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- LOGIKA VIEW DETAIL & UNLOCK BUTTON ---
     const viewLaporanModalEl = document.getElementById('viewLaporanModal');
-    const isReportDay = @json($isReportDay); 
+    const isReportDay = @json(isset($isReportDay) ? $isReportDay : false); 
 
     if (viewLaporanModalEl) {
         const formUnlock = document.getElementById('formRequestUnlock');
@@ -549,7 +635,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const unlockUntil = data.report_unlock_until ? new Date(data.report_unlock_until) : null;
                 const isUnlocked = unlockUntil && unlockUntil > now;
 
-                if (data.status === 'Direncanakan' && !isReportDay && !isUnlocked) {
+                // Jika status Direncanakan/Berlangsung, Diluar Jadwal, dan Belum Unlock -> Munculkan Tombol
+                if ((data.status === 'Direncanakan' || data.status === 'Berlangsung') && !isReportDay && !isUnlocked) {
                     let unlockUrl = "{{ route('oikos.request_unlock', ':id') }}";
                     unlockUrl = unlockUrl.replace(':id', visitId);
                     formUnlock.action = unlockUrl;
@@ -567,7 +654,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
                 };
 
-                if(data.status === 'Direncanakan' && !data.realisasi_date) {
+                // Jika status Berlangsung (Draft) tapi data kosong, tampilkan pesan
+                const hasData = data.realisasi_date || data.tindakan_cinta_desc || data.tindakan_peduli_desc;
+
+                if(!hasData) {
                      modalBody.innerHTML += `
                         <div class="text-center py-4 text-secondary">
                             <i class="bi bi-clipboard-x fs-1 opacity-50"></i>
@@ -578,7 +668,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     const photoCintaHtml = data.tindakan_cinta_photo_path ? `<div class="mt-2"><a href="/storage/${data.tindakan_cinta_photo_path}" target="_blank"><img src="/storage/${data.tindakan_cinta_photo_path}" class="img-fluid rounded" style="max-height:200px"></a></div>` : '';
                     const photoPeduliHtml = data.tindakan_peduli_photo_path ? `<div class="mt-2"><a href="/storage/${data.tindakan_peduli_photo_path}" target="_blank"><img src="/storage/${data.tindakan_peduli_photo_path}" class="img-fluid rounded" style="max-height:200px"></a></div>` : '';
-                    modalBody.innerHTML += `<div class="row g-3"><div class="col-12"><div class="p-3 bg-light rounded-3"><b>Tanggal:</b> ${formatDate(data.realisasi_date)}</div></div><div class="col-12"><b>Doa 5 Jari:</b> ${data.is_doa_5_jari ? 'Ya' : 'Tidak'}<br><b>Doa Syafaat:</b> ${data.is_doa_syafaat ? 'Ya' : 'Tidak'}</div><div class="col-12"><b>Cinta OIKOS:</b> ${data.tindakan_cinta_desc} ${photoCintaHtml}</div><div class="col-12"><b>Peduli OIKOS:</b> ${data.tindakan_peduli_desc} ${photoPeduliHtml}</div></div>`;
+                    
+                    let contentHtml = `<div class="row g-3"><div class="col-12"><div class="p-3 bg-light rounded-3"><b>Tanggal:</b> ${formatDate(data.realisasi_date)}</div></div><div class="col-12"><b>Doa 5 Jari:</b> ${data.is_doa_5_jari ? 'Ya' : 'Tidak'}<br><b>Doa Syafaat:</b> ${data.is_doa_syafaat ? 'Ya' : 'Tidak'}</div>`;
+                    
+                    if (data.tindakan_cinta_desc) contentHtml += `<div class="col-12"><b>Cinta OIKOS:</b> ${data.tindakan_cinta_desc} ${photoCintaHtml}</div>`;
+                    if (data.tindakan_peduli_desc) contentHtml += `<div class="col-12"><b>Peduli OIKOS:</b> ${data.tindakan_peduli_desc} ${photoPeduliHtml}</div>`;
+                    
+                    contentHtml += `</div>`;
+                    modalBody.innerHTML += contentHtml;
                 }
 
             } catch (e) { 

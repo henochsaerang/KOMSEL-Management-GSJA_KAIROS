@@ -8,7 +8,7 @@
 <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
 
 <style>
-    /* === MODERN CARD STYLE (Konsisten dengan Kunjungan) === */
+    /* === MODERN CARD STYLE === */
     .card-form {
         border: none;
         border-radius: 16px;
@@ -75,7 +75,7 @@
         background-color: var(--primary-color); border-color: var(--primary-color);
     }
     
-    /* Flatpickr Dark Mode Overrides (Optional tweak) */
+    /* Flatpickr Dark Mode Overrides */
     .flatpickr-calendar { background: var(--element-bg); border-color: var(--border-color); box-shadow: var(--shadow-md); }
     .flatpickr-day { color: var(--bs-body-color); }
     .flatpickr-day.flatpickr-disabled { color: var(--text-secondary); opacity: 0.3; }
@@ -99,16 +99,33 @@
         </div>
     </div>
 
-    {{-- Alert Jika Diluar Jadwal --}}
-    @if(isset($isAllowedDay) && !$isAllowedDay)
-    <div class="alert alert-danger d-flex align-items-start border-0 shadow-sm rounded-4 mb-4" role="alert" style="background-color: rgba(220, 53, 69, 0.1); color: #ea868f;">
-        <i class="bi bi-exclamation-triangle-fill me-3 fs-4 text-danger"></i>
-        <div class="text-danger">
-            <strong class="d-block mb-1">Akses Dibatasi</strong>
-            Pembuatan jadwal biasanya hanya dibuka hari <strong>Minggu - Selasa</strong>. Anda saat ini tidak dapat menyimpan jadwal kecuali memiliki akses khusus.
-        </div>
-    </div>
+    {{-- ======================================================= --}}
+    {{-- LOGIKA NOTIFIKASI STATUS AKSES --}}
+    {{-- ======================================================= --}}
+    
+    @if(isset($isNormalScheduleDay) && !$isNormalScheduleDay)
+        @if(isset($userCanBypass) && $userCanBypass)
+            {{-- ALERT HIJAU: Admin/Unlock Mode --}}
+            <div class="alert alert-success d-flex align-items-start border-0 shadow-sm rounded-4 mb-4" role="alert" style="background-color: rgba(25, 135, 84, 0.1); color: #198754;">
+                <i class="bi bi-unlock-fill me-3 fs-4 text-success"></i>
+                <div class="text-success">
+                    <strong class="d-block mb-1">Akses Khusus Aktif</strong>
+                    Anda memiliki akses untuk membuat laporan/jadwal meskipun jangka waktu ini bukan untuk menginput laporan.
+                </div>
+            </div>
+        @else
+            {{-- ALERT KUNING: Mode Request Access --}}
+            <div class="alert alert-warning d-flex align-items-start border-0 shadow-sm rounded-4 mb-4" role="alert" style="background-color: #fff3cd; color: #856404;">
+                <i class="bi bi-exclamation-circle-fill me-3 fs-4 text-warning"></i>
+                <div>
+                    <strong class="d-block mb-1">Di Luar Jadwal Input</strong>
+                    Saat ini di luar jadwal normal (Minggu-Selasa). Silakan isi form di bawah, lalu klik tombol <strong>"Ajukan Persetujuan Admin"</strong> agar jadwal ini disetujui.
+                </div>
+            </div>
+        @endif
     @endif
+
+    {{-- ======================================================= --}}
 
     <div class="card card-form">
         <div class="card-body p-4 p-lg-5">
@@ -159,9 +176,10 @@
                                     <div class="dropdown-options">
                                         @foreach ($users as $user)
                                             <div class="dropdown-item-custom" 
-                                                 data-value="{{ $user['id'] }}" 
-                                                 data-text="{{ $user['nama'] }}">
-                                                {{ $user['nama'] }}
+                                                 {{-- Handle array syntax from API cache --}}
+                                                 data-value="{{ is_array($user) ? $user['id'] : $user->id }}" 
+                                                 data-text="{{ is_array($user) ? $user['nama'] : $user->nama }}">
+                                                {{ is_array($user) ? $user['nama'] : $user->nama }}
                                             </div>
                                         @endforeach
                                     </div>
@@ -194,9 +212,9 @@
                                     <div class="dropdown-options">
                                         @foreach ($pelayans as $pelayan)
                                             <div class="dropdown-item-custom" 
-                                                 data-value="{{ $pelayan['id'] }}" 
-                                                 data-text="{{ $pelayan['nama'] }}">
-                                                {{ $pelayan['nama'] }}
+                                                 data-value="{{ is_array($pelayan) ? $pelayan['id'] : $pelayan->id }}" 
+                                                 data-text="{{ is_array($pelayan) ? $pelayan['nama'] : $pelayan->nama }}">
+                                                {{ is_array($pelayan) ? $pelayan['nama'] : $pelayan->nama }}
                                             </div>
                                         @endforeach
                                     </div>
@@ -210,7 +228,7 @@
                                     <i class="bi bi-person-check-fill"></i>
                                 </div>
                                 <div>
-                                    <div class="fw-bold" style="color: var(--bs-body-color);">{{ $currentUser->nama }}</div>
+                                    <div class="fw-bold" style="color: var(--bs-body-color);">{{ $currentUser->name ?? $currentUser->nama }}</div>
                                     <small class="text-secondary">Leader / Pelayan (Anda)</small>
                                 </div>
                             </div>
@@ -243,9 +261,22 @@
 
                 <div class="d-flex justify-content-between align-items-center pt-5 mt-2 border-top" style="border-color: var(--border-color)!important;">
                     <a href="{{ route('oikos') }}" class="btn btn-link text-secondary text-decoration-none fw-medium">Batal</a>
-                    <button type="submit" class="btn btn-primary btn-lg px-5 rounded-pill fw-bold shadow-sm" {{ (isset($isAllowedDay) && !$isAllowedDay) ? 'disabled' : '' }}>
-                        Simpan Jadwal
-                    </button>
+                    
+                    {{-- ================================================= --}}
+                    {{-- LOGIKA TOMBOL SUBMIT (REQUEST vs SAVE) --}}
+                    {{-- ================================================= --}}
+                    
+                    @if(isset($isNormalScheduleDay) && !$isNormalScheduleDay && (!isset($userCanBypass) || !$userCanBypass))
+                        {{-- TOMBOL PENGAJUAN (Kuning) --}}
+                        <button type="submit" name="action" value="request_access" class="btn btn-warning text-dark btn-lg px-4 rounded-pill fw-bold shadow-sm">
+                            <i class="bi bi-send-exclamation me-2"></i> Ajukan Persetujuan Admin
+                        </button>
+                    @else
+                        {{-- TOMBOL SIMPAN NORMAL (Biru) --}}
+                        <button type="submit" name="action" value="save" class="btn btn-primary btn-lg px-5 rounded-pill fw-bold shadow-sm">
+                            <i class="bi bi-calendar-check me-2"></i> Simpan Jadwal
+                        </button>
+                    @endif
                 </div>
             </form>
         </div>

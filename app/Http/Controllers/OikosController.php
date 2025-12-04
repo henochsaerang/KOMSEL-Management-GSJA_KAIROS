@@ -19,14 +19,13 @@ class OikosController extends Controller
 {
     protected $apiService;
 
-    // Cache key untuk data dari API Lama
     const CACHE_KEY = [
         'jemaat_list'   => 'api_jemaat_list_v2',
         'jemaat_map'    => 'api_jemaat_map_by_id_v2',
         'pelayan_list'  => 'api_oikos_pelayan_list_v2',
         'pelayan_map'   => 'api_oikos_pelayan_map_v2',
     ];
-    const CACHE_TTL = 3600; // Cache 1 Jam
+    const CACHE_TTL = 3600; 
 
     public function __construct(OldApiService $apiService)
     {
@@ -41,43 +40,34 @@ class OikosController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
         
-        // 1. Logika Waktu & Izin
+        // 1. Logika Waktu
         $isScheduleDay = in_array(now()->dayOfWeek, [Carbon::SUNDAY, Carbon::MONDAY, Carbon::TUESDAY]);
-        $canBypass = method_exists($user, 'canScheduleNow') ? $user->canScheduleNow() : false;
-
-        // 2. Cek Role Admin
+        $hasUnlockAccess = method_exists($user, 'canScheduleNow') ? $user->canScheduleNow() : false;
+        
         $roles = $user->roles ?? [];
         $isAdmin = in_array('super_admin', $roles) || in_array('coordinator', $roles);
+        
+        $canBypass = $isAdmin || $hasUnlockAccess;
 
-        // 3. Ambil ID Komsel Leader (Untuk Filter)
+        // 2. Ambil ID Komsel Leader
         $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
         if (empty($leaderKomselIds) && $user->komsel_id) {
             $leaderKomselIds = [$user->komsel_id];
         }
 
-        // 4. Ambil Data Jemaat (Cache API) & FILTER
+        // 3. Ambil Data Jemaat
         $allJemaat = Cache::remember(self::CACHE_KEY['jemaat_list'], self::CACHE_TTL, function () {
             $data = $this->apiService->getAllJemaat();
-            return $data ? collect($data)->filter() : collect();
+            return $data ? collect($data) : collect();
         });
         
-        // Pastikan Collection
-        $allJemaat = collect($allJemaat); 
-
-        // [LOGIKA FILTER]
-        $jemaatList = $allJemaat->filter(function ($jemaat) use ($isAdmin, $leaderKomselIds) {
-            if ($isAdmin) return true; // Admin lihat semua
-
+        $jemaatList = collect($allJemaat)->filter(function ($jemaat) use ($isAdmin, $leaderKomselIds) {
+            if ($isAdmin) return true;
             $jKomselId = is_array($jemaat) ? ($jemaat['komsel_id'] ?? null) : ($jemaat->komsel_id ?? null);
-            
-            // Cek apakah anggota ini satu komsel dengan leader
-            if ($jKomselId && in_array($jKomselId, $leaderKomselIds)) {
-                return true;
-            }
-            return false;
+            return $jKomselId && in_array($jKomselId, $leaderKomselIds);
         })->sortBy('nama')->values();
         
-        // 5. Jika Admin, ambil list semua pelayan
+        // 4. Data Pelayan (Untuk Admin)
         $pelayanList = collect();
         if ($isAdmin) {
             $pelayanList = Cache::remember(self::CACHE_KEY['pelayan_list'], self::CACHE_TTL, function () {
@@ -87,34 +77,39 @@ class OikosController extends Controller
             $pelayanList = collect($pelayanList);
         }
 
-        $data = [
+        return view('OIKOS.formInput', [
             'aktifInput'   => 'active',
             'title'        => 'Jadwal OIKOS',
             'users'        => $jemaatList, 
             'pelayans'     => $pelayanList, 
             'isAdmin'      => $isAdmin,     
             'currentUser'  => $user,        
-            'isAllowedDay' => $isScheduleDay || $canBypass,
-        ];
-
-        return view('OIKOS.formInput', $data);
+            'isAllowedDay' => $isScheduleDay || $canBypass, 
+            'isNormalScheduleDay' => $isScheduleDay,        
+            'userCanBypass' => $canBypass                   
+        ]);
     }
 
     /**
-     * Menyimpan jadwal kunjungan baru ke database.
+     * Menyimpan jadwal kunjungan baru.
+     * LOGIC BARU: Jika di luar jadwal, simpan sebagai 'Menunggu Persetujuan'.
      */
     public function storeOikosVisit(Request $request)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
         
-        // 1. Validasi Waktu
+        // Cek Waktu & Izin
         $isScheduleDay = in_array(now()->dayOfWeek, [Carbon::SUNDAY, Carbon::MONDAY, Carbon::TUESDAY]);
         $hasSpecialAccess = method_exists($user, 'canScheduleNow') ? $user->canScheduleNow() : false;
         $roles = $user->roles ?? [];
         $isAdmin = in_array('super_admin', $roles) || in_array('coordinator', $roles);
 
-        if (!$isScheduleDay && !$hasSpecialAccess && !$isAdmin) {
+        // Cek Action dari Form (request_access atau save normal)
+        $isRequestingAccess = $request->input('action') === 'request_access';
+
+        // Validasi Akses: Jika diblokir DAN tidak sedang meminta akses -> Tolak
+        if (!$isScheduleDay && !$hasSpecialAccess && !$isAdmin && !$isRequestingAccess) {
             return redirect()->back()->with('error', 'Pembuatan jadwal hanya dibuka hari Minggu - Selasa.');
         }
 
@@ -127,22 +122,7 @@ class OikosController extends Controller
             'tanggalSampai' => 'required|date|after_or_equal:tanggalDari',
         ]);
 
-        // 2. Validasi Keamanan: Pastikan Leader hanya memilih anggota komselnya
-        if (!$isAdmin && $validated['input_type'] === 'terdaftar') {
-            $targetId = (int)$validated['Nama_Anggota'];
-            $allJemaat = collect(Cache::get(self::CACHE_KEY['jemaat_list'], []));
-            $targetJemaat = $allJemaat->firstWhere('id', $targetId);
-            
-            $leaderKomselIds = $request->session()->get('user_komsel_ids', []);
-            if (empty($leaderKomselIds) && $user->komsel_id) $leaderKomselIds = [$user->komsel_id];
-
-            $jKomselId = is_array($targetJemaat) ? ($targetJemaat['komsel_id'] ?? null) : ($targetJemaat->komsel_id ?? null);
-
-            if (!$jKomselId || !in_array($jKomselId, $leaderKomselIds)) {
-                return redirect()->back()->with('error', 'Validasi Gagal: Anda hanya boleh menjadwalkan anggota Komsel Anda sendiri.');
-            }
-        }
-
+        // Logic Nama Oikos
         $oikosName = '';
         $jemaatId = null;
         $pelayanId = $request->input('pelayan') ? (int)$request->input('pelayan') : $user->id;
@@ -157,15 +137,29 @@ class OikosController extends Controller
             $oikosName = $realName ?? 'Jemaat (ID: ' . $jemaatId . ')';
         }
 
-        OikosVisit::create([
+        // TENTUKAN STATUS AWAL
+        $initialStatus = $isRequestingAccess ? 'Menunggu Persetujuan' : 'Direncanakan';
+
+        $visit = OikosVisit::create([
             'oikos_name' => $oikosName,
             'jemaat_id' => $jemaatId,
             'pelayan_user_id' => $pelayanId, 
             'start_date' => $validated['tanggalDari'],
             'end_date' => $validated['tanggalSampai'],
-            'status' => 'Direncanakan',
+            'status' => $initialStatus,
         ]);
 
+        // JIKA REQUEST ACCESS -> Notifikasi ke Admin
+        if ($isRequestingAccess) {
+            $this->notifyAdmins('Permintaan Jadwal Khusus', 
+                $user->name . ' mengajukan jadwal oikos di luar waktu normal untuk: ' . $oikosName, 
+                'request_schedule', 
+                route('oikos.approve_schedule', $visit->id)
+            );
+            return redirect()->route('oikos')->with('success', 'Permintaan jadwal berhasil dikirim ke Admin. Mohon tunggu persetujuan.');
+        }
+
+        // JIKA PENUGASAN OLEH ADMIN -> Notifikasi ke Pelayan
         if ($user->id != $pelayanId && class_exists(Notification::class)) {
             Notification::create([
                 'user_id' => $pelayanId,
@@ -180,43 +174,62 @@ class OikosController extends Controller
     }
 
     /**
+     * [BARU] Admin Menyetujui Permintaan Jadwal Khusus
+     * Mengubah status jadi 'Direncanakan' dan membuka kunci laporan.
+     */
+    public function approveScheduleRequest(OikosVisit $oikosVisit)
+    {
+        $user = Auth::user();
+        $roles = $user->roles ?? [];
+        $isAdmin = in_array('super_admin', $roles) || in_array('coordinator', $roles);
+        
+        if (!$isAdmin) abort(403, 'Unauthorized');
+
+        // Approve & Unlock 24 Jam
+        $oikosVisit->update([
+            'status' => 'Direncanakan',
+            'report_unlock_until' => now()->addDay() 
+        ]);
+
+        // Notifikasi ke Pembuat Jadwal
+        if (class_exists(Notification::class)) {
+            Notification::create([
+                'user_id' => $oikosVisit->pelayan_user_id,
+                'title'   => 'Jadwal Disetujui',
+                'message' => 'Jadwal OIKOS untuk ' . $oikosVisit->oikos_name . ' disetujui. Anda dapat mengisi laporan sekarang.',
+                'type'    => 'info',
+                'action_url' => route('oikos'),
+            ]);
+        }
+
+        return redirect()->route('dashboard')->with('success', 'Jadwal berhasil disetujui dan diaktifkan.');
+    }
+
+    /**
      * Menampilkan daftar kunjungan OIKOS.
      */
     public function daftarOikos() 
     {
         $user = Auth::user();
         
-        $jemaatList = Cache::remember(self::CACHE_KEY['jemaat_map'], self::CACHE_TTL, function () {
-            return collect($this->apiService->getAllJemaat())->filter()->keyBy('id');
-        });
-        $pelayanListForDropdown = Cache::remember(self::CACHE_KEY['pelayan_list'], self::CACHE_TTL, function () {
-            return collect($this->apiService->getAllOikosPelayan())->filter()->sortBy('nama')->values();
-        });
-        
-        $jemaatList = collect($jemaatList);
-        $pelayanListForDropdown = collect($pelayanListForDropdown);
-        $pelayanMap = $pelayanListForDropdown->keyBy('id');
+        $jemaatList = Cache::remember(self::CACHE_KEY['jemaat_map'], self::CACHE_TTL, fn() => 
+            collect($this->apiService->getAllJemaat())->filter()->keyBy('id')
+        );
+        $pelayanListForDropdown = Cache::remember(self::CACHE_KEY['pelayan_list'], self::CACHE_TTL, fn() => 
+            collect($this->apiService->getAllOikosPelayan())->filter()->sortBy('nama')->values()
+        );
+        $pelayanMap = collect($pelayanListForDropdown)->keyBy('id');
 
-        $roles = $user->roles ?? [];
-        $isAdmin = in_array('super_admin', $roles) || in_array('coordinator', $roles);
+        $isAdmin = in_array('super_admin', $user->roles ?? []) || in_array('coordinator', $user->roles ?? []);
 
         $query = OikosVisit::orderBy('start_date', 'desc');
-        
         if (!$isAdmin) {
-            $query->where(function($q) use ($user) {
-                $q->where('pelayan_user_id', $user->id)
-                  ->orWhere('original_pelayan_user_id', $user->id);
-            });
+            $query->where(fn($q) => $q->where('pelayan_user_id', $user->id)->orWhere('original_pelayan_user_id', $user->id));
         }
-
         $oikosVisits = $query->get();
 
         foreach ($oikosVisits as $visit) {
-            if ($visit->jemaat_id && $jemaatList->has($visit->jemaat_id)) {
-                $visit->jemaat_data = $jemaatList->get($visit->jemaat_id);
-            } else {
-                $visit->jemaat_data = null;
-            }
+            $visit->jemaat_data = ($visit->jemaat_id && $jemaatList->has($visit->jemaat_id)) ? $jemaatList->get($visit->jemaat_id) : null;
             
             if ($visit->pelayan_user_id && $pelayanMap->has($visit->pelayan_user_id)) {
                 $visit->pelayan_data = $pelayanMap->get($visit->pelayan_user_id); 
@@ -239,42 +252,50 @@ class OikosController extends Controller
     }
 
     /**
-     * [UPDATE] Menyimpan laporan realisasi kunjungan (Dengan Cek Unlock & VALIDASI BEBAS KARAKTER).
+     * Menyimpan laporan (Support Draft & Final Submit).
      */
     public function storeReport(Request $request, OikosVisit $oikosVisit)
     {
         $allowedReportDays = [Carbon::WEDNESDAY, Carbon::THURSDAY, Carbon::FRIDAY, Carbon::SATURDAY];
         
-        // Cek Hari ATAU Cek Izin Unlock
-        $isUnlockActive = $oikosVisit->report_unlock_until && Carbon::now()->lte($oikosVisit->report_unlock_until);
+        $isUnlockActive = ($oikosVisit->report_unlock_until && Carbon::now()->lte($oikosVisit->report_unlock_until)) 
+                          || $oikosVisit->status === 'Revisi' 
+                          || $oikosVisit->status === 'Berlangsung'; // Draft juga boleh diedit kapan saja
         
         if (!in_array(now()->dayOfWeek, $allowedReportDays) && !$isUnlockActive) {
-            return redirect()->back()->with('error', 'Pengisian laporan hanya dibuka hari Rabu - Sabtu, kecuali Anda meminta akses buka kunci.');
+            return redirect()->back()->with('error', 'Pengisian laporan hanya dibuka hari Rabu - Sabtu.');
         }
 
-        $validated = $request->validate([
-            'realisasi_date' => 'required|date',
-            'is_doa_5_jari' => 'nullable', 
-            'realisasi_doa_5_jari_date' => 'nullable|date',
-            'is_doa_syafaat' => 'nullable', 
-            'realisasi_doa_syafaat_date' => 'nullable|date',
-            // [FIX] Hapus 'min:20', ganti jadi 'required|string' saja (bebas karakter)
-            'tindakan_cinta_desc' => 'required|string', 
+        $action = $request->input('action', 'submit');
+
+        // Validasi Dinamis (Draft vs Submit)
+        $rules = [
+            'realisasi_date' => $action === 'submit' ? 'required|date' : 'nullable|date',
+            'tindakan_cinta_desc' => $action === 'submit' ? 'required|string' : 'nullable|string',
+            'tindakan_peduli_desc' => $action === 'submit' ? 'required|string' : 'nullable|string',
+            // ... field lain nullable ...
             'tindakan_cinta_photo_path' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
-            // [FIX] Hapus 'min:20', ganti jadi 'required|string' saja (bebas karakter)
-            'tindakan_peduli_desc' => 'required|string',
             'tindakan_peduli_photo_path' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
             'respon_injil' => 'nullable|string',
             'catatan' => 'nullable|string',
-        ]);
-        
-        if (!$request->hasFile('tindakan_cinta_photo_path') && !$oikosVisit->tindakan_cinta_photo_path) {
-            return back()->withErrors(['tindakan_cinta_photo_path' => 'Foto Tindakan Cinta wajib diunggah!']);
-        }
-        if (!$request->hasFile('tindakan_peduli_photo_path') && !$oikosVisit->tindakan_peduli_photo_path) {
-            return back()->withErrors(['tindakan_peduli_photo_path' => 'Foto Tindakan Peduli wajib diunggah!']);
+            'is_doa_5_jari' => 'nullable',
+            'realisasi_doa_5_jari_date' => 'nullable|date',
+            'is_doa_syafaat' => 'nullable',
+            'realisasi_doa_syafaat_date' => 'nullable|date',
+        ];
+        $validated = $request->validate($rules);
+
+        // Cek Wajib Foto saat Submit Final
+        if ($action === 'submit') {
+            if (!$request->hasFile('tindakan_cinta_photo_path') && !$oikosVisit->tindakan_cinta_photo_path) {
+                return back()->withErrors(['tindakan_cinta_photo_path' => 'Foto Tindakan Cinta wajib diunggah untuk pengiriman final!'])->withInput();
+            }
+            if (!$request->hasFile('tindakan_peduli_photo_path') && !$oikosVisit->tindakan_peduli_photo_path) {
+                return back()->withErrors(['tindakan_peduli_photo_path' => 'Foto Tindakan Peduli wajib diunggah untuk pengiriman final!'])->withInput();
+            }
         }
 
+        // Upload Foto
         $pathCinta = $oikosVisit->tindakan_cinta_photo_path;
         if ($request->hasFile('tindakan_cinta_photo_path')) {
             if ($pathCinta) Storage::disk('public')->delete($pathCinta);
@@ -287,16 +308,23 @@ class OikosController extends Controller
             $pathPeduli = $request->file('tindakan_peduli_photo_path')->store('oikos_reports/peduli', 'public');
         }
 
-        $oikosVisit->update(array_merge($validated, [
+        $updateData = array_merge($validated, [
             'tindakan_cinta_photo_path' => $pathCinta,
             'tindakan_peduli_photo_path' => $pathPeduli,
             'is_doa_5_jari' => $request->has('is_doa_5_jari'),
             'is_doa_syafaat' => $request->has('is_doa_syafaat'),
-            'status' => 'Diproses',
-            'report_unlock_until' => null // Reset unlock setelah berhasil lapor
-        ]));
+        ]);
 
-        return redirect()->route('oikos')->with('success', 'Laporan OIKOS berhasil dikirim.');
+        if ($action === 'draft') {
+            $updateData['status'] = 'Berlangsung'; 
+        } else {
+            $updateData['status'] = 'Diproses';
+            $updateData['report_unlock_until'] = null;
+        }
+
+        $oikosVisit->update($updateData);
+
+        return redirect()->route('oikos')->with('success', $action === 'draft' ? 'Laporan disimpan sementara.' : 'Laporan dikirim final.');
     }
 
     /**
@@ -305,9 +333,7 @@ class OikosController extends Controller
     public function confirmVisit(OikosVisit $oikosVisit)
     {
         if ($oikosVisit->status !== 'Diproses') return redirect()->route('oikos')->with('warning', 'Laporan ini tidak dalam status "Diproses".');
-        if (empty($oikosVisit->tindakan_cinta_desc) || empty($oikosVisit->tindakan_peduli_desc)) {
-            return redirect()->route('oikos')->with('error', 'Laporan belum lengkap.');
-        }
+        
         $oikosVisit->update(['status' => 'Selesai']);
         return redirect()->route('oikos')->with('success', 'Laporan Oikos berhasil dikonfirmasi.');
     }
@@ -333,9 +359,6 @@ class OikosController extends Controller
         return response()->json($oikosVisit);
     }
 
-    /**
-     * Fitur Delegasi / Ganti Pelayan.
-     */
     public function delegateVisit(Request $request, OikosVisit $oikosVisit)
     {
         $request->validate(['new_pelayan_id' => 'required|integer', 'replacement_reason' => 'required|string|min:5']);
@@ -353,7 +376,7 @@ class OikosController extends Controller
             Notification::create([
                 'user_id' => $newPelayanId,
                 'title'   => 'Tugas Kunjungan Baru (Delegasi)',
-                'message' => 'Anda telah ditunjuk menggantikan tugas kunjungan ke: ' . $oikosVisit->oikos_name . '. Alasan: ' . $request->replacement_reason,
+                'message' => 'Anda ditunjuk menggantikan tugas ke: ' . $oikosVisit->oikos_name,
                 'type'    => 'assignment',
                 'action_url' => route('oikos'),
             ]);
@@ -362,16 +385,13 @@ class OikosController extends Controller
         return back()->with('success', 'Pelayan berhasil diganti.');
     }
 
-    /**
-     * Meminta revisi laporan (Khusus Admin/Coordinator).
-     */
     public function requestRevision(Request $request, OikosVisit $oikosVisit)
     {
         $user = Auth::user();
         $roles = $user->roles ?? [];
         $isAdmin = in_array('super_admin', $roles) || in_array('coordinator', $roles);
 
-        if (!$isAdmin) return redirect()->back()->with('error', 'Anda tidak memiliki wewenang untuk meminta revisi.');
+        if (!$isAdmin) return redirect()->back()->with('error', 'Unauthorized.');
 
         $request->validate([ 'revision_comment' => 'required|string|min:5' ]);
 
@@ -384,99 +404,86 @@ class OikosController extends Controller
             Notification::create([
                 'user_id' => $oikosVisit->pelayan_user_id,
                 'title'   => 'Laporan Perlu Revisi',
-                'message' => 'Laporan kunjungan ke ' . $oikosVisit->oikos_name . ' dikembalikan. Catatan: ' . $request->revision_comment,
+                'message' => 'Laporan kunjungan ' . $oikosVisit->oikos_name . ' dikembalikan. Catatan: ' . $request->revision_comment,
                 'type'    => 'revision', 
                 'action_url' => route('oikos'),
             ]);
         }
 
-        return redirect()->back()->with('success', 'Laporan berhasil dikembalikan untuk revisi.');
+        return redirect()->back()->with('success', 'Laporan dikembalikan untuk revisi.');
     }
 
-    /**
-     * [BARU] Leader meminta akses buka kunci laporan di luar jadwal.
-     */
+    // Request Unlock (Untuk laporan yang sudah ada tapi terlambat)
     public function requestReportUnlock(OikosVisit $oikosVisit)
     {
-        $admins = User::all()->filter(function($u) {
-            $roles = $u->roles ?? [];
-            return in_array('super_admin', $roles) || in_array('coordinator', $roles);
-        });
-
-        foreach ($admins as $admin) {
-            if (class_exists(Notification::class)) {
-                Notification::create([
-                    'user_id' => $admin->id,
-                    'title'   => 'Permintaan Buka Kunci',
-                    'message' => Auth::user()->name . ' meminta akses input laporan untuk: ' . $oikosVisit->oikos_name,
-                    'type'    => 'request_unlock',
-                    'action_url' => route('oikos.approve_unlock', $oikosVisit->id), 
-                ]);
-            }
-        }
-
-        return back()->with('success', 'Permintaan buka kunci terkirim ke Admin. Harap tunggu persetujuan.');
+        $this->notifyAdmins('Permintaan Buka Kunci', 
+            Auth::user()->name . ' meminta akses input laporan untuk: ' . $oikosVisit->oikos_name, 
+            'request_unlock', 
+            route('oikos.approve_unlock', $oikosVisit->id)
+        );
+        return back()->with('success', 'Permintaan terkirim ke Admin.');
     }
 
-    /**
-     * [BARU] Admin menyetujui buka kunci (Akses 24 Jam).
-     */
+    // Approve Unlock (Untuk laporan terlambat)
     public function approveReportUnlock(OikosVisit $oikosVisit)
     {
         $user = Auth::user();
-        $roles = $user->roles ?? [];
-        $isAdmin = in_array('super_admin', $roles) || in_array('coordinator', $roles);
-        
-        if (!$isAdmin) abort(403, 'Unauthorized');
+        $isAdmin = in_array('super_admin', $user->roles ?? []) || in_array('coordinator', $user->roles ?? []);
+        if (!$isAdmin) abort(403);
 
-        $oikosVisit->update([
-            'report_unlock_until' => now()->addDay()
-        ]);
+        $oikosVisit->update(['report_unlock_until' => now()->addDay()]);
 
         if (class_exists(Notification::class)) {
             Notification::create([
                 'user_id' => $oikosVisit->pelayan_user_id,
                 'title'   => 'Laporan Dibuka',
-                'message' => 'Akses laporan untuk ' . $oikosVisit->oikos_name . ' telah dibuka selama 24 jam.',
+                'message' => 'Akses laporan ' . $oikosVisit->oikos_name . ' dibuka 24 jam.',
                 'type'    => 'info',
                 'action_url' => route('oikos'),
             ]);
         }
-
-        return redirect()->route('oikos')->with('success', 'Akses laporan berhasil dibuka selama 24 jam.');
+        return redirect()->route('oikos')->with('success', 'Akses laporan dibuka.');
     }
 
-    /**
-     * Hapus satu item (Single Delete)
-     */
     public function destroy(OikosVisit $oikosVisit)
     {
         if ($oikosVisit->tindakan_cinta_photo_path) Storage::disk('public')->delete($oikosVisit->tindakan_cinta_photo_path);
         if ($oikosVisit->tindakan_peduli_photo_path) Storage::disk('public')->delete($oikosVisit->tindakan_peduli_photo_path);
-        
         $oikosVisit->delete();
-        return redirect()->back()->with('success', 'Data kunjungan berhasil dihapus.');
+        return redirect()->back()->with('success', 'Data dihapus.');
     }
 
-    /**
-     * Hapus Masal (Bulk Delete)
-     */
     public function bulkDestroy(Request $request)
     {
         $ids = $request->input('ids');
-
-        if (empty($ids) || !is_array($ids)) {
-            return redirect()->back()->with('error', 'Tidak ada data yang dipilih untuk dihapus.');
-        }
+        if (empty($ids) || !is_array($ids)) return redirect()->back()->with('error', 'Tidak ada data dipilih.');
 
         $visits = OikosVisit::whereIn('id', $ids)->get();
-
         foreach($visits as $visit) {
              if ($visit->tindakan_cinta_photo_path) Storage::disk('public')->delete($visit->tindakan_cinta_photo_path);
              if ($visit->tindakan_peduli_photo_path) Storage::disk('public')->delete($visit->tindakan_peduli_photo_path);
              $visit->delete();
         }
-        
-        return redirect()->back()->with('success', count($ids) . ' data berhasil dihapus masal.');
+        return redirect()->back()->with('success', count($ids) . ' data dihapus.');
+    }
+
+    // Helper Private Notifikasi
+    private function notifyAdmins($title, $message, $type, $url) {
+        $admins = User::all()->filter(function($u) {
+            $roles = $u->roles ?? [];
+            return in_array('super_admin', $roles) || in_array('coordinator', $roles);
+        });
+
+        if (class_exists(Notification::class)) {
+            foreach ($admins as $admin) {
+                Notification::create([
+                    'user_id' => $admin->id,
+                    'title'   => $title,
+                    'message' => $message,
+                    'type'    => $type,
+                    'action_url' => $url, 
+                ]);
+            }
+        }
     }
 }

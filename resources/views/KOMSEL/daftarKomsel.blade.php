@@ -1,211 +1,153 @@
 @extends('layouts.app')
 
-@section('title', 'Daftar Anggota')
+@section('title', 'Daftar Anggota Komsel')
 
 @push('styles')
 <style>
-    /* === MODERN CARD & LAYOUT === */
-    .card {
-        border: none;
+    /* === VARIABLES & GENERAL === */
+    :root {
+        --bg-soft: #f8f9fa;
+        --card-bg: #ffffff;
+        --border-color: #eff2f5;
+        --text-main: #344767;
+        --text-sub: #7b809a;
+        --primary-soft: rgba(94, 114, 228, 0.1);
+        --primary-color: #5e72e4;
+    }
+
+    /* === CARD & STRUCTURE === */
+    .card-modern {
+        background: var(--card-bg);
+        border: 1px solid rgba(0,0,0,0.05);
         border-radius: 1rem;
-        box-shadow: var(--shadow-sm);
-        background-color: var(--element-bg);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
     }
     
-    /* === TABLE STYLING (Desktop Default) === */
-    .table thead th { 
-        border-bottom: 2px solid var(--border-color); 
-        font-weight: 600; 
-        text-transform: uppercase;
+    /* === TABLE STYLING === */
+    .table > :not(caption) > * > * {
+        padding: 1rem 1.5rem;
+        border-bottom-color: var(--border-color);
+    }
+    .table thead th {
         font-size: 0.75rem;
+        text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: var(--text-secondary);
-        padding: 1rem 1.5rem;
-        background-color: var(--element-bg-subtle);
+        color: var(--text-sub);
+        font-weight: 700;
+        background-color: #fcfcfc;
+        border-bottom: 2px solid var(--border-color);
     }
-    .table td { 
-        padding: 1rem 1.5rem;
-        vertical-align: middle;
-        color: var(--bs-body-color);
-        border-bottom: 1px solid var(--border-color);
+    .table tbody tr:hover {
+        background-color: #fafbff;
     }
-    .table-hover > tbody > tr:hover > * { 
-        background-color: var(--hover-bg);
-        transition: background-color 0.2s ease;
-    }
-    .table tbody tr:last-child td { border-bottom: none; }
-
-    /* === AVATAR/INITIALS === */
-    .avatar-sm {
-        width: 40px;
-        height: 40px;
-        background-color: var(--primary-color);
+    
+    /* === AVATAR === */
+    .avatar-initial {
+        width: 42px;
+        height: 42px;
+        background: linear-gradient(310deg, #5e72e4 0%, #825ee4 100%);
         color: white;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1rem;
         font-weight: 600;
-        text-transform: uppercase;
-        flex-shrink: 0; /* Prevent shrinking */
+        font-size: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(94, 114, 228, 0.3);
     }
 
     /* === BADGES === */
-    .komsel-badge {
+    .badge-komsel {
+        background-color: var(--primary-soft);
+        color: var(--primary-color);
+        padding: 0.5em 0.9em;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.75rem;
         display: inline-flex;
         align-items: center;
-        padding: 0.35em 0.8em;
+        gap: 6px;
+    }
+    .badge-role {
+        background-color: #e9ecef;
+        color: var(--text-main);
+        border-radius: 6px;
+        padding: 4px 10px;
         font-size: 0.75rem;
         font-weight: 600;
-        border-radius: 9999px;
-        background-color: var(--primary-bg-subtle);
-        color: var(--primary-color);
-        border: 1px solid rgba(79, 70, 229, 0.1);
-    }
-    .role-badge {
-        font-size: 0.75rem;
-        padding: 0.35em 0.8em;
-        border-radius: 6px;
-        font-weight: 500;
-        background-color: var(--element-bg-subtle);
-        color: var(--bs-body-color);
-        border: 1px solid var(--border-color);
     }
 
-    /* === SEARCH BOX === */
-    .search-wrapper {
-        border: 1px solid var(--border-color);
+    /* === CUSTOM DROPDOWN FILTER === */
+    .filter-dropdown {
+        position: relative;
+        min-width: 260px;
+    }
+    .filter-trigger {
+        background: white;
+        border: 1px solid #d2d6da;
+        padding: 0.6rem 1rem;
         border-radius: 0.75rem;
-        overflow: hidden;
-        transition: all 0.2s;
-        background-color: var(--element-bg);
+        cursor: pointer;
         display: flex;
+        justify-content: space-between;
         align-items: center;
+        transition: all 0.2s;
     }
-    .search-wrapper:focus-within {
+    .filter-trigger:hover, .filter-trigger.active {
         border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        box-shadow: 0 0 0 2px var(--primary-soft);
     }
-    .search-wrapper input {
-        color: var(--bs-body-color);
-        background: transparent;
-    }
-    .search-wrapper input::placeholder {
-        color: var(--text-secondary);
-        opacity: 0.7;
-    }
-
-    /* === CUSTOM SEARCHABLE DROPDOWN === */
-    .custom-dropdown { position: relative; width: 100%; }
-    .dropdown-trigger {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 0.6rem 1rem; 
-        background: var(--element-bg);
-        border: 1px solid var(--border-color); 
+    .filter-menu {
+        position: absolute;
+        top: 110%;
+        left: 0;
+        width: 100%;
+        background: white;
         border-radius: 0.75rem;
-        cursor: pointer; transition: all 0.2s; 
-        color: var(--bs-body-color);
-        user-select: none;
-        min-height: 42px;
-    }
-    .dropdown-trigger:hover { border-color: #a5b4fc; }
-    .dropdown-trigger.active {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-    }
-    .dropdown-menu-custom {
-        position: absolute; top: 110%; left: 0; right: 0;
-        background: var(--element-bg);
-        border: 1px solid var(--border-color); 
-        border-radius: 0.75rem;
-        box-shadow: var(--shadow-md);
-        display: none; z-index: 1050; overflow: hidden; padding-bottom: 5px;
-    }
-    .dropdown-menu-custom.show { display: block; animation: fadeIn 0.2s ease-out; }
-    .dropdown-search {
-        padding: 10px; border-bottom: 1px solid var(--border-color); 
-        background: var(--element-bg-subtle);
-    }
-    .dropdown-search input {
-        width: 100%; padding: 6px 10px; 
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         border: 1px solid var(--border-color);
-        background-color: var(--input-bg);
-        color: var(--bs-body-color);
-        border-radius: 0.5rem; font-size: 0.85rem; outline: none;
+        z-index: 1000;
+        display: none;
+        overflow: hidden;
     }
-    .dropdown-options { max-height: 250px; overflow-y: auto; padding: 5px; }
-    .dropdown-item-custom {
-        padding: 8px 12px; cursor: pointer; border-radius: 0.5rem;
-        transition: background 0.15s; 
-        color: var(--bs-body-color);
-        font-weight: 500; font-size: 0.9rem;
+    .filter-menu.show { display: block; animation: fadeIn 0.2s ease; }
+    .filter-search { padding: 10px; border-bottom: 1px solid var(--border-color); background: #f8f9fa; }
+    .filter-search input { width: 100%; padding: 6px 10px; border: 1px solid #d2d6da; border-radius: 6px; font-size: 0.85rem; }
+    .filter-options { max-height: 250px; overflow-y: auto; }
+    .filter-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: var(--text-main);
+        transition: background 0.15s;
     }
-    .dropdown-item-custom:hover { 
-        background-color: var(--hover-bg);
-        color: var(--primary-color); 
-    }
-    .dropdown-item-custom.selected { 
-        background-color: var(--primary-color); 
-        color: #fff; 
-    }
-    .dropdown-item-custom.hidden { display: none; }
+    .filter-item:hover { background-color: var(--primary-soft); color: var(--primary-color); }
+    .filter-item.selected { background-color: var(--primary-color); color: white; }
 
-    /* === MOBILE RESPONSIVE TABLE (CARD VIEW) === */
+    /* === MOBILE RESPONSIVE === */
     @media (max-width: 768px) {
-        /* Hide Table Header */
         .table thead { display: none; }
+        .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
         
-        /* Make Table Block */
-        .table, .table tbody, .table tr, .table td { 
-            display: block; 
-            width: 100%; 
-        }
-        
-        /* Card Style for Row */
-        .table tbody tr {
+        .table tr {
             margin-bottom: 1rem;
-            background-color: var(--element-bg);
+            background: white;
             border: 1px solid var(--border-color);
             border-radius: 1rem;
             padding: 1rem;
             position: relative;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
         
-        /* Remove border from cells */
-        .table td {
-            border: none;
-            padding: 0.25rem 0;
-            text-align: left;
-        }
-
-        /* 1. Hide No Column */
-        .table td:nth-child(1) { display: none; }
-
-        /* 2. Name & Avatar (Top) */
-        .table td:nth-child(2) {
-            margin-bottom: 0.5rem;
-            padding-right: 40px; /* Space for action button */
-        }
-
-        /* 3. Role (Middle) */
-        .table td:nth-child(3) {
-            display: inline-block;
-            width: auto;
-            padding: 0;
-            margin-right: 0.5rem;
-            margin-left: 3.5rem; /* Align with name text (avatar width + margin) */
-        }
-
-        /* 4. Komsel (Middle) */
-        .table td:nth-child(4) {
-            display: inline-block;
-            width: auto;
-            padding: 0;
-        }
-
-        /* 5. Action Button (Absolute Top Right) */
+        .table td { border: none; padding: 0.25rem 0; text-align: left; }
+        
+        /* Layout Mobile */
+        .table td:nth-child(1) { display: none; } /* No */
+        .table td:nth-child(2) { margin-bottom: 0.5rem; padding-right: 50px; } /* Nama */
+        .table td:nth-child(3) { display: inline-block; margin-right: 10px; } /* Role */
+        .table td:nth-child(4) { display: inline-block; } /* Komsel */
+        
+        /* Action Button Absolute Top Right */
         .table td:nth-child(5) {
             position: absolute;
             top: 1rem;
@@ -213,209 +155,169 @@
             width: auto;
             padding: 0;
         }
-        
-        /* === MOBILE BUTTON STYLE === */
-        /* Make button a circle on mobile and hide text */
-        .table td:nth-child(5) .btn { 
-            padding: 0; 
-            width: 36px; 
-            height: 36px; 
-            display: flex; 
-            align-items: center; 
+        .table td:nth-child(5) .btn span { display: none; } /* Hide Text "Jadwal" */
+        .table td:nth-child(5) .btn {
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: flex;
+            align-items: center;
             justify-content: center;
-            border-radius: 50% !important;
-        }
-        
-        /* Hide text and chevron on mobile */
-        .table td:nth-child(5) .btn span,
-        .table td:nth-child(5) .btn .bi-chevron-down { 
-            display: none; 
-        }
-        /* Ensure main icon is visible */
-        .table td:nth-child(5) .btn i:first-child {
-            margin-right: 0 !important;
-            font-size: 1.1rem;
         }
     }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 @endpush
 
 @section('konten')
-<div class="container-fluid px-0 pb-5">
+<div class="container-fluid py-4">
     
-    {{-- Header Section --}}
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-        <div>
-            <h4 class="fw-bold text-body mb-1">Daftar Anggota</h4>
-            <p class="text-secondary small mb-0">Manajemen data anggota dan pembagian KOMSEL</p>
+    {{-- HEADER SECTION --}}
+    <div class="row align-items-center mb-4 g-3">
+        <div class="col-md-6">
+            <h4 class="fw-bold mb-1 text-dark">Data Anggota Komsel</h4>
+            <p class="text-secondary small mb-0">Kelola data jemaat, penugasan komsel, dan jadwal kunjungan.</p>
         </div>
-        
-        <div class="d-flex gap-2 align-items-center">
-            {{-- Custom Filter Dropdown --}}
-            <div class="w-100" style="min-width: 250px;">
-                <div class="custom-dropdown" id="komselFilterDropdown">
-                    {{-- Hidden Input untuk Filter Logic --}}
-                    <input type="hidden" id="komsel-filter" value="all">
-                    
-                    <div class="dropdown-trigger">
-                        <span class="selected-text text-truncate">Semua KOMSEL</span>
-                        <i class="bi bi-chevron-down text-secondary small ms-2"></i>
-                    </div>
+        <div class="col-md-6 d-flex justify-content-md-end gap-2">
+            {{-- Filter Custom --}}
+            <div class="filter-dropdown" id="komselFilter">
+                <input type="hidden" id="selectedKomselId" value="all">
+                
+                <div class="filter-trigger" id="filterTrigger">
+                    <span class="text-truncate fw-medium" id="filterLabel">Semua Komsel</span>
+                    <i class="bi bi-chevron-down ms-2 small text-secondary"></i>
+                </div>
 
-                    <div class="dropdown-menu-custom">
-                        <div class="dropdown-search">
-                            <input type="text" class="search-input" placeholder="Cari Komsel..." autocomplete="off">
-                        </div>
-                        <div class="dropdown-options">
-                            <div class="dropdown-item-custom selected" data-value="all" data-text="Semua KOMSEL">Semua KOMSEL</div>
-                            @foreach ($komsels as $komsel)
-                                <div class="dropdown-item-custom" data-value="{{ $komsel['id'] }}" data-text="{{ $komsel['nama'] }}">
-                                    {{ $komsel['nama'] }}
-                                </div>
-                            @endforeach
-                        </div>
+                <div class="filter-menu">
+                    <div class="filter-search">
+                        <input type="text" placeholder="Cari nama komsel..." id="filterSearchInput">
+                    </div>
+                    <div class="filter-options">
+                        <div class="filter-item selected" data-value="all" data-label="Semua Komsel">Semua Komsel</div>
+                        @foreach($komsels as $komsel)
+                            {{-- Gunakan array syntax karena komsels adalah collection of arrays --}}
+                            <div class="filter-item" data-value="{{ $komsel['id'] }}" data-label="{{ $komsel['nama'] }}">
+                                {{ $komsel['nama'] }}
+                            </div>
+                        @endforeach
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Card Wrapper --}}
-    <div class="card border-0 bg-transparent shadow-none">
-        <div class="card-body p-0">
-            {{-- Toolbar / Search Bar --}}
-            <div class="p-3 border-bottom d-flex align-items-center rounded-top-4 mb-3 mb-md-0" style="background-color: var(--element-bg); border: 1px solid var(--border-color); border-radius: 1rem;">
-                <div class="search-wrapper d-flex align-items-center flex-grow-1" style="max-width: 400px; border: none; background: transparent;">
-                    <span class="input-group-text border-0 bg-transparent ps-0 text-secondary"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control border-0 shadow-none bg-transparent p-0" id="nama-search" placeholder="Cari nama anggota..." autocomplete="off">
-                </div>
+    {{-- MAIN CARD --}}
+    <div class="card card-modern">
+        {{-- Search Bar --}}
+        <div class="p-3 border-bottom bg-light bg-opacity-25">
+            <div class="input-group border rounded-3 bg-white overflow-hidden" style="max-width: 400px;">
+                <span class="input-group-text bg-white border-0 ps-3 text-secondary"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control border-0 shadow-none ps-2" id="searchName" placeholder="Cari nama anggota..." autocomplete="off">
             </div>
+        </div>
 
-            {{-- Table --}}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" style="background-color: transparent;">
-                    <thead class="d-none d-md-table-header-group">
-                        <tr>
-                            <th scope="col" class="ps-4" style="width: 60px;">No</th>
-                            <th scope="col">Nama Anggota</th>
-                            <th scope="col">Peran (Role)</th>
-                            <th scope="col">Komunitas Sel</th>
-                            <th scope="col" class="text-end pe-4">Aksi</th>
+        {{-- Table --}}
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-4" style="width: 50px;">#</th>
+                        <th>Profil Anggota</th>
+                        <th>Peran (Role)</th>
+                        <th>Komunitas Sel</th>
+                        <th class="text-end pe-4">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="memberTableBody">
+                    @forelse($users as $user)
+                        {{-- Data attribute komsel-id penting untuk filter --}}
+                        <tr data-komsel-id="{{ $user->komsel_id ?? 'none' }}" class="member-row">
+                            <td class="ps-4 text-secondary fw-bold small">{{ $loop->iteration }}</td>
+                            
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-initial me-3">
+                                        {{-- Fallback jika nama kosong --}}
+                                        {{ substr($user->name ?? 'A', 0, 1) }}
+                                    </div>
+                                    <div class="d-flex flex-column">
+                                        <span class="text-dark fw-bold name-text">{{ $user->name }}</span>
+                                        <span class="text-secondary small" style="font-size: 0.75rem;">
+                                            <i class="bi bi-telephone me-1"></i> {{ $user->no_hp ?? '-' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td>
+                                {{-- Jika ada roles, tampilkan yang pertama. Jika tidak, Anggota --}}
+                                @if(isset($user->roles) && !empty($user->roles) && isset($user->roles[0]))
+                                    <span class="badge-role">{{ $user->roles[0] }}</span>
+                                @else
+                                    <span class="badge-role">Anggota</span>
+                                @endif
+                            </td>
+
+                            <td>
+                                @if(!empty($user->komsel_name) && $user->komsel_name !== '-')
+                                    <span class="badge-komsel">
+                                        <i class="bi bi-people-fill"></i> {{ $user->komsel_name }}
+                                    </span>
+                                @else
+                                    <span class="text-secondary small fst-italic ms-1">Belum ada komsel</span>
+                                @endif
+                            </td>
+
+                            <td class="text-end pe-4">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-white border shadow-sm text-primary fw-bold" type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-calendar-plus me-1"></i> <span>Jadwal</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 p-2">
+                                        <li>
+                                            <a class="dropdown-item rounded-2 py-2 d-flex align-items-center" href="{{ route('formInput', ['jemaat_id' => $user->id]) }}">
+                                                <i class="bi bi-house-heart text-warning me-2 fs-5"></i>
+                                                <div>
+                                                    <div class="fw-bold small">OIKOS</div>
+                                                    <div class="text-muted" style="font-size: 10px;">Penjangkauan Jiwa</div>
+                                                </div>
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider my-1"></li>
+                                        <li>
+                                            <a class="dropdown-item rounded-2 py-2 d-flex align-items-center" href="{{ route('kunjungan.create', ['member_id' => $user->id]) }}">
+                                                <i class="bi bi-person-walking text-success me-2 fs-5"></i>
+                                                <div>
+                                                    <div class="fw-bold small">Kunjungan</div>
+                                                    <div class="text-muted" style="font-size: 10px;">Gembala / Besuk</div>
+                                                </div>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="bg-transparent">
-                        @forelse ($users as $user)
-                            <tr data-komsel-id="{{ $user['komsel_id'] ?? 'none' }}">
-                                <td class="ps-4 text-secondary fw-medium">{{ $loop->iteration }}</td>
-                                
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-sm me-3 shadow-sm">
-                                            {{ substr($user['nama'], 0, 1) }}
-                                        </div>
-                                        <div class="d-flex flex-column">
-                                            <span class="fw-bold text-body">{{ $user['nama'] }}</span>
-                                            {{-- Mobile Only Role Hint --}}
-                                            <span class="d-md-none text-secondary small" style="font-size: 0.7rem; margin-top: 2px;">
-                                                ID: {{ $user['id'] }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </td>
-                                
-                                <td>
-                                    @if(!empty($user['roles']))
-                                        <span class="badge role-badge">
-                                            {{ $user['roles'][0] }}
-                                        </span>
-                                    @else
-                                        <span class="badge role-badge text-secondary">Anggota</span>
-                                    @endif
-                                </td>
-
-                                <td>
-                                    @php
-                                        $komselId = $user['komsel_id'] ?? null;
-                                        $komselName = null;
-                                        if ($komselId) {
-                                            foreach ($komsels as $k) {
-                                                if ($k['id'] == $komselId) {
-                                                    $komselName = $k['nama'];
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    @endphp
-                                    
-                                    @if ($komselName)
-                                        <span class="komsel-badge">
-                                            <i class="bi bi-people-fill me-1 opacity-50"></i> {{ $komselName }}
-                                        </span>
-                                    @else
-                                        <span class="text-secondary small fst-italic ms-1">Belum bergabung</span>
-                                    @endif
-                                </td>
-
-                                <td class="text-end pe-4">
-                                    {{-- Dropdown Action Menu --}}
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-light text-primary shadow-sm border px-3 fw-bold d-inline-flex align-items-center justify-content-center"
-                                                type="button" 
-                                                data-bs-toggle="dropdown" 
-                                                aria-expanded="false"
-                                                style="background: var(--element-bg); border-color: var(--border-color)!important; border-radius: 50rem;">
-                                            <i class="bi bi-calendar-plus me-md-1"></i> 
-                                            <span>Jadwal</span>
-                                            <i class="bi bi-chevron-down ms-1 small"></i>
-                                        </button>
-                                        
-                                        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-2 rounded-4 mt-2">
-                                            <li><h6 class="dropdown-header text-uppercase small fw-bold text-secondary mb-1">Pilih Jadwal</h6></li>
-                                            
-                                            {{-- Option 1: OIKOS (Pre-fill name via ID) --}}
-                                            <li>
-                                                <a class="dropdown-item rounded-2 py-2 mb-1 d-flex align-items-center" href="{{ route('formInput', ['jemaat_id' => $user['id']]) }}">
-                                                    <span class="d-flex align-items-center justify-content-center bg-warning bg-opacity-10 text-warning rounded-2 me-2" style="width: 32px; height: 32px;">
-                                                        <i class="bi bi-house-heart-fill"></i>
-                                                    </span>
-                                                    <div>
-                                                        <div class="fw-bold small text-body">Jadwal OIKOS</div>
-                                                        <div class="text-secondary" style="font-size: 0.65rem;">Penjangkauan</div>
-                                                    </div>
-                                                </a>
-                                            </li>
-
-                                            {{-- Option 2: Kunjungan --}}
-                                            <li>
-                                                <a class="dropdown-item rounded-2 py-2 d-flex align-items-center" href="{{ route('kunjungan.create', ['member_id' => $user['id']]) }}">
-                                                    <span class="d-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-2 me-2" style="width: 32px; height: 32px;">
-                                                        <i class="bi bi-person-walking"></i>
-                                                    </span>
-                                                    <div>
-                                                        <div class="fw-bold small text-body">Jadwal Kunjungan</div>
-                                                        <div class="text-secondary" style="font-size: 0.65rem;">Gembala / Besuk</div>
-                                                    </div>
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr id="empty-row">
-                                <td colspan="5" class="text-center py-5">
-                                    <div class="d-flex flex-column align-items-center opacity-50">
-                                        <i class="bi bi-inbox fs-1 mb-2 text-secondary"></i>
-                                        <p class="mb-0 fw-medium text-secondary">Tidak ada data anggota ditemukan.</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                    @empty
+                        <tr id="emptyState">
+                            <td colspan="5" class="text-center py-5">
+                                <div class="opacity-50">
+                                    <i class="bi bi-folder-x display-4 text-secondary"></i>
+                                    <p class="mt-2 fw-medium text-secondary">Belum ada data anggota.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                    
+                    {{-- Row untuk "Tidak ditemukan" saat filter --}}
+                    <tr id="noResultRow" style="display: none;">
+                        <td colspan="5" class="text-center py-5">
+                            <i class="bi bi-search text-secondary fs-1 opacity-50"></i>
+                            <p class="mt-2 text-secondary">Tidak ditemukan anggota dengan filter tersebut.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -424,113 +326,99 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Tooltips (Bootstrap)
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    
+    // --- 1. SEARCH & FILTER LOGIC ---
+    const searchInput = document.getElementById('searchName');
+    const komselInput = document.getElementById('selectedKomselId');
+    const rows = document.querySelectorAll('.member-row');
+    const noResultRow = document.getElementById('noResultRow');
+    const emptyState = document.getElementById('emptyState'); 
 
-    // === FILTER LOGIC ===
-    const komselFilterInput = document.getElementById('komsel-filter');
-    const namaSearch = document.getElementById('nama-search');
-    const tableRows = document.querySelectorAll('table tbody tr:not(#empty-row)');
-    const emptyRow = document.getElementById('empty-row');
-
-    function applyFilters() {
-        const komselValue = komselFilterInput.value;
-        const searchValue = namaSearch.value.toLowerCase().trim();
+    function applyFilter() {
+        const searchText = searchInput.value.toLowerCase();
+        const filterKomsel = komselInput.value;
         let visibleCount = 0;
 
-        tableRows.forEach(row => {
+        rows.forEach(row => {
+            const nameEl = row.querySelector('.name-text');
+            const name = nameEl ? nameEl.textContent.toLowerCase() : '';
             const komselId = row.getAttribute('data-komsel-id');
-            // Target nama dengan lebih spesifik
-            const namaCell = row.querySelector('td:nth-child(2) .fw-bold'); 
-            const nama = namaCell ? namaCell.textContent.toLowerCase() : '';
 
-            const komselMatch = (komselValue === 'all' || komselId === komselValue);
-            const nameMatch = nama.includes(searchValue);
+            // Cek kondisi
+            const matchName = name.includes(searchText);
+            const matchKomsel = (filterKomsel === 'all' || komselId == filterKomsel);
 
-            if (komselMatch && nameMatch) {
-                row.style.display = ''; 
+            if (matchName && matchKomsel) {
+                row.style.display = '';
                 visibleCount++;
             } else {
-                row.style.display = 'none'; 
+                row.style.display = 'none';
             }
         });
 
-        if (emptyRow) {
-            emptyRow.style.display = (visibleCount === 0) ? '' : 'none';
-            const emptyText = emptyRow.querySelector('p');
-            if (visibleCount === 0 && searchValue) {
-                emptyText.textContent = `Tidak ditemukan anggota dengan nama "${searchValue}"`;
-            } else if (visibleCount === 0) {
-                emptyText.textContent = "Tidak ada data anggota ditemukan.";
-            }
+        // Toggle No Result State
+        if (rows.length > 0) {
+            noResultRow.style.display = (visibleCount === 0) ? 'table-row' : 'none';
         }
     }
 
-    // Listeners for standard inputs
-    if (namaSearch) namaSearch.addEventListener('input', applyFilters);
+    // Event Listeners
+    searchInput.addEventListener('input', applyFilter);
 
 
-    // === CUSTOM DROPDOWN LOGIC (Filter Komsel) ===
-    const dropdownWrapper = document.getElementById('komselFilterDropdown');
-    if (dropdownWrapper) {
-        const trigger = dropdownWrapper.querySelector('.dropdown-trigger');
-        const menu = dropdownWrapper.querySelector('.dropdown-menu-custom');
-        const searchInput = dropdownWrapper.querySelector('.search-input');
-        const optionsList = dropdownWrapper.querySelector('.dropdown-options');
-        const options = optionsList.querySelectorAll('.dropdown-item-custom');
-        const selectedText = dropdownWrapper.querySelector('.selected-text');
+    // --- 2. CUSTOM DROPDOWN LOGIC ---
+    const dropdown = document.getElementById('komselFilter');
+    // Cek jika elemen filter ada (untuk mencegah error di halaman kosong)
+    if(dropdown) {
+        const trigger = document.getElementById('filterTrigger');
+        const menu = dropdown.querySelector('.filter-menu');
+        const label = document.getElementById('filterLabel');
+        const filterSearch = document.getElementById('filterSearchInput');
+        const options = dropdown.querySelectorAll('.filter-item');
 
-        // Toggle
-        trigger.addEventListener('click', function(e) {
+        // Toggle Menu
+        trigger.addEventListener('click', (e) => {
             e.stopPropagation();
             menu.classList.toggle('show');
             trigger.classList.toggle('active');
-            if (menu.classList.contains('show')) {
-                setTimeout(() => searchInput.focus(), 100);
-            }
+            if(menu.classList.contains('show')) filterSearch.focus();
         });
 
-        // Select Item
-        options.forEach(option => {
-            option.addEventListener('click', function() {
-                const value = this.getAttribute('data-value');
-                const text = this.getAttribute('data-text');
-
+        // Pilih Opsi
+        options.forEach(opt => {
+            opt.addEventListener('click', function() {
                 // Update UI
-                selectedText.textContent = text;
-                options.forEach(opt => opt.classList.remove('selected'));
+                label.textContent = this.getAttribute('data-label');
+                options.forEach(o => o.classList.remove('selected'));
                 this.classList.add('selected');
 
-                // Update Hidden Input & Trigger Filter
-                komselFilterInput.value = value;
-                applyFilters(); // Panggil filter langsung
+                // Update Logic
+                komselInput.value = this.getAttribute('data-value');
+                applyFilter(); // Trigger filter tabel
 
-                // Close Menu
+                // Tutup
                 menu.classList.remove('show');
                 trigger.classList.remove('active');
-                searchInput.value = '';
-                filterOptions('');
+                filterSearch.value = ''; // Reset search dropdown
+                filterDropdownOptions(''); // Reset list options
             });
         });
 
-        // Search inside dropdown
-        searchInput.addEventListener('input', function(e) {
-            filterOptions(e.target.value.toLowerCase());
+        // Search di dalam Dropdown Options
+        filterSearch.addEventListener('input', (e) => {
+            filterDropdownOptions(e.target.value.toLowerCase());
         });
 
-        function filterOptions(query) {
-            options.forEach(option => {
-                const text = option.getAttribute('data-text').toLowerCase();
-                option.style.display = text.includes(query) ? '' : 'none';
+        function filterDropdownOptions(query) {
+            options.forEach(opt => {
+                const text = opt.getAttribute('data-label').toLowerCase();
+                opt.style.display = text.includes(query) ? 'block' : 'none';
             });
         }
 
-        // Close on Click Outside
-        document.addEventListener('click', function(e) {
-            if (!dropdownWrapper.contains(e.target)) {
+        // Klik di luar menutup dropdown
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target)) {
                 menu.classList.remove('show');
                 trigger.classList.remove('active');
             }

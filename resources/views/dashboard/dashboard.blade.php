@@ -5,6 +5,7 @@
 @push('styles')
 <style>
     /* === DASHBOARD STYLES === */
+    
     /* Welcome Card */
     .welcome-card {
         background: linear-gradient(135deg, var(--primary-color), #4338ca);
@@ -17,12 +18,12 @@
         border-radius: 50%;
     }
 
-    /* KPI Cards (Interactive) */
+    /* KPI Cards */
     .kpi-card {
         background-color: var(--element-bg); border: 1px solid var(--border-color);
         border-radius: 1rem; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s;
         height: 100%; display: flex; align-items: center; box-shadow: var(--shadow-sm);
-        cursor: pointer; /* Menandakan bisa diklik */
+        cursor: pointer; 
     }
     .kpi-card:hover {
         transform: translateY(-2px);
@@ -35,7 +36,7 @@
         font-size: 1.75rem; margin-right: 1rem; flex-shrink: 0;
     }
 
-    /* Chart Card */
+    /* Main Content Cards */
     .chart-card {
         background-color: var(--element-bg); border: 1px solid var(--border-color);
         border-radius: 1rem; box-shadow: var(--shadow-sm);
@@ -45,24 +46,61 @@
         background-color: var(--element-bg); border-color: var(--border-color); color: var(--bs-body-color);
         padding: 1rem 1.25rem;
     }
+    
+    /* Quick Action Buttons */
     .btn-quick-action {
         display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem;
         border-radius: 0.75rem; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;
     }
+
+    /* Birthday Item Style */
+    .birthday-item {
+        background-color: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        transition: all 0.2s;
+        position: relative;
+        overflow: hidden;
+        text-decoration: none; /* Karena pakai tag A */
+        color: inherit;
+        height: 100%;
+    }
+    .birthday-item:hover {
+        border-color: #dc3545;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.1);
+        transform: translateY(-2px);
+    }
     
+    /* Style: Sudah Lewat */
+    .birthday-item.passed {
+        background-color: #f8f9fa;
+        border-color: #e9ecef;
+        opacity: 0.8;
+    }
+    .birthday-item.passed .avatar-circle {
+        filter: grayscale(100%);
+        opacity: 0.5;
+    }
+    
+    /* Style: Hari Ini */
+    .birthday-item.today {
+        border: 2px solid #ff6b6b;
+        background-color: #fff5f5;
+    }
+
     /* Modal Specifics */
     .modal-content { background-color: var(--element-bg); color: var(--bs-body-color); border: 1px solid var(--border-color); }
     .modal-header { border-bottom: 1px solid var(--border-color); }
     .modal-footer { border-top: 1px solid var(--border-color); }
-    
-    /* Komsel Detail Card inside Modal */
+
+    /* Komsel Detail Card */
     .komsel-detail-card {
         background-color: var(--element-bg-subtle);
         border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 1rem;
-        text-align: center;
-        height: 100%;
+        border-radius: 12px; padding: 1rem; text-align: center; height: 100%;
     }
     .komsel-detail-number { font-size: 1.5rem; font-weight: 800; color: var(--primary-color); line-height: 1; }
     .komsel-detail-label { font-size: 0.85rem; font-weight: 600; color: var(--bs-body-color); margin-bottom: 4px; }
@@ -74,13 +112,15 @@
 
 @section('konten')
 
-    {{-- WELCOME --}}
+    {{-- 1. WELCOME CARD --}}
     <div class="card welcome-card mb-4">
         <div class="card-body p-4 p-lg-5 d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative z-1">
             <div>
                 <h2 class="fw-bold mb-1">
                     Selamat Datang, 
-                    @if (in_array('super_admin', Auth::user()->roles)) Admin! @elseif (in_array('Leaders', Auth::user()->roles)) Leader! @else {{ explode(' ', Auth::user()->name)[0] }}! @endif
+                    @if (in_array('super_admin', Auth::user()->roles ?? [])) Admin! 
+                    @elseif (in_array('Leaders', Auth::user()->roles ?? [])) Leader! 
+                    @else {{ explode(' ', Auth::user()->name)[0] }}! @endif
                 </h2>
                 <p class="mb-0 opacity-75">Berikut adalah ringkasan aktivitas pelayanan KOMSEL & OIKOS.</p>
             </div>
@@ -88,7 +128,7 @@
         </div>
     </div>
 
-    {{-- NOTIFIKASI REVISI --}}
+    {{-- 2. NOTIFIKASI REVISI --}}
     @if (isset($oikosRevisiUntukUser) && $oikosRevisiUntukUser->isNotEmpty())
         <div class="alert alert-warning border-0 shadow-sm rounded-4 mb-4 d-flex align-items-start" role="alert" style="background-color: rgba(255, 193, 7, 0.15); color: #856404;">
             <i class="bi bi-exclamation-triangle-fill fs-4 me-3 mt-1 text-warning"></i>
@@ -101,9 +141,8 @@
         </div>
     @endif
 
-    {{-- KPI CARDS (CLICKABLE) --}}
+    {{-- 3. KPI CARDS --}}
     <div class="row g-4 mb-4">
-        <!-- 1. Total Anggota (Trigger Modal Anggota) -->
         <div class="col-sm-6 col-xl-3">
             <div class="kpi-card" data-bs-toggle="modal" data-bs-target="#modalAnggota">
                 <div class="kpi-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-people-fill"></i></div>
@@ -113,8 +152,6 @@
                 </div>
             </div>
         </div>
-        
-        <!-- 2. OIKOS Bulan Ini (Trigger Modal OIKOS) -->
         <div class="col-sm-6 col-xl-3">
             <div class="kpi-card" data-bs-toggle="modal" data-bs-target="#modalOikos">
                 <div class="kpi-icon bg-success bg-opacity-10 text-success"><i class="bi bi-house-heart-fill"></i></div>
@@ -124,8 +161,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- 3. Total Komsel (Trigger Modal Komsel) -->
         <div class="col-sm-6 col-xl-3">
             <div class="kpi-card" data-bs-toggle="modal" data-bs-target="#modalKomsel">
                 <div class="kpi-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-collection-fill"></i></div>
@@ -135,8 +170,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- 4. Rata-rata Kehadiran (No Modal, Stat Only) -->
         <div class="col-sm-6 col-xl-3">
             <div class="kpi-card" style="cursor: default;">
                 <div class="kpi-icon bg-info bg-opacity-10 text-info"><i class="bi bi-graph-up-arrow"></i></div>
@@ -148,79 +181,144 @@
         </div>
     </div>
 
-    {{-- MAIN CONTENT --}}
-    @if (Auth::check() && !empty(Auth::user()->roles))
-        <div class="row g-4">
-            <div class="col-lg-8">
-                <div class="chart-card h-100 d-flex flex-column">
-                    <div class="chart-header d-flex justify-content-between align-items-center">
-                        <h6 class="fw-bold text-adaptive mb-0">Grafik Kehadiran (4 Minggu Terakhir)</h6>
-                        <span class="badge bg-primary bg-opacity-10 text-primary">Real-time</span>
-                    </div>
-                    <div class="card-body p-4 flex-grow-1">
-                        <div style="position: relative; height: 300px; width: 100%;">
-                            <canvas id="dashboardKehadiranChart"></canvas>
+    {{-- 4. MAIN CONTENT --}}
+    <div class="row g-4 mb-4">
+        
+        {{-- LEFT COL: ULANG TAHUN (MENGGANTIKAN CHART) --}}
+        <div class="col-lg-8">
+            <div class="chart-card h-100 d-flex flex-column">
+                {{-- Header Ulang Tahun --}}
+                <div class="chart-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-danger bg-opacity-10 text-danger rounded-circle p-2 me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="bi bi-gift-fill"></i>
                         </div>
-                        <div class="mt-4 pt-3 border-top" style="border-color: var(--border-color)!important;">
-                            <h6 class="text-muted-adaptive small fw-bold text-uppercase mb-3">Aksi Cepat</h6>
-                            <div class="d-flex flex-wrap gap-2">
-                                <a href="{{ route('formInput') }}" class="btn btn-outline-primary btn-quick-action"><i class="bi bi-plus-lg"></i> Tambah OIKOS</a>
-                                <a href="{{ route('jadwal') }}" class="btn btn-outline-success btn-quick-action"><i class="bi bi-calendar-plus"></i> Buat Jadwal</a>
-                                <a href="{{ route('kunjungan.create') }}" class="btn btn-outline-info btn-quick-action"><i class="bi bi-person-walking"></i> Catat Kunjungan</a>
+                        <h6 class="fw-bold text-adaptive mb-0">Ulang Tahun Bulan Ini ({{ now()->format('F') }})</h6>
+                    </div>
+                    <span class="badge bg-danger bg-opacity-10 text-danger">{{ isset($birthdayMembers) ? $birthdayMembers->count() : 0 }} Anggota</span>
+                </div>
+
+                {{-- Body Ulang Tahun --}}
+                <div class="card-body p-4 flex-grow-1 d-flex flex-column">
+                    
+                    <div class="flex-grow-1 custom-scrollbar" style="min-height: 200px; max-height: 400px; overflow-y: auto; padding-right: 5px;">
+                        @if(isset($birthdayMembers) && $birthdayMembers->isNotEmpty())
+                            <div class="row g-3">
+                                @foreach($birthdayMembers as $bday)
+                                    @php
+                                        // LOGIKA TANGGAL & STATUS
+                                        $currentDay = (int) now()->day;
+                                        $bdayDay = (int) $bday->hari_ultah;
+                                        $isPassed = $bdayDay < $currentDay; // Sudah lewat tanggalnya
+                                        $isToday = $bdayDay === $currentDay; // Ulang tahun hari ini!
+                                    @endphp
+
+                                    <div class="col-md-6">
+                                        {{-- KLIK KARTU -> KE FORM KUNJUNGAN --}}
+                                        {{-- Parameter: member_id & visit_type=HUT --}}
+                                        <a href="{{ route('kunjungan.create', ['member_id' => $bday->id, 'visit_type' => 'HUT']) }}" 
+                                           class="birthday-item {{ $isPassed ? 'passed' : '' }} {{ $isToday ? 'today' : '' }} text-decoration-none">
+                                            
+                                            {{-- Confetti: Hilang jika sudah lewat --}}
+                                            @if(!$isPassed)
+                                                <div style="position: absolute; top: -10px; right: -10px; font-size: 3rem; opacity: 0.05; transform: rotate(15deg);">🎉</div>
+                                            @endif
+                                            
+                                            <div class="avatar-circle bg-gradient-danger text-white me-3 d-flex align-items-center justify-content-center rounded-circle fw-bold shadow-sm flex-shrink-0" 
+                                                 style="width: 42px; height: 42px; font-size: 1rem; background: linear-gradient(45deg, #ff6b6b, #ff8787);">
+                                                {{ $bday->avatar_initial }}
+                                            </div>
+                                            
+                                            <div class="flex-grow-1 overflow-hidden">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <h6 class="fw-bold text-dark mb-0 text-truncate" title="{{ $bday->nama }}" style="max-width: 140px;">
+                                                        {{ $bday->nama }}
+                                                    </h6>
+                                                    
+                                                    {{-- BADGE STATUS --}}
+                                                    @if($isPassed)
+                                                        <span class="badge bg-secondary bg-opacity-25 text-secondary rounded-pill ms-1" style="font-size: 0.6rem;">Selesai</span>
+                                                    @elseif($isToday)
+                                                        <span class="badge bg-danger text-white rounded-pill ms-1 border border-light shadow-sm" style="font-size: 0.6rem;">HARI INI!</span>
+                                                    @else
+                                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill ms-1" style="font-size: 0.6rem;">{{ $bday->umur }} Th</span>
+                                                    @endif
+                                                </div>
+                                                
+                                                <div class="small text-secondary d-flex align-items-center mt-1">
+                                                    <i class="bi bi-cake2 me-1 {{ $isPassed ? 'text-secondary' : 'text-danger' }} opacity-75"></i> 
+                                                    {{ $bday->tgl_lahir }}
+                                                </div>
+                                                
+                                                <div class="small text-muted mt-0 fst-italic text-truncate" style="font-size: 0.75rem;">
+                                                    {{ $bday->komsel_nama }}
+                                                </div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                @endforeach
                             </div>
+                        @else
+                            <div class="h-100 d-flex flex-column align-items-center justify-content-center text-center text-muted opacity-75">
+                                <i class="bi bi-emoji-smile display-4 mb-3 text-secondary opacity-25"></i>
+                                <p>Tidak ada yang berulang tahun bulan ini di wilayah Anda.</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- Footer: Aksi Cepat --}}
+                    <div class="mt-4 pt-3 border-top" style="border-color: var(--border-color)!important;">
+                        <h6 class="text-muted-adaptive small fw-bold text-uppercase mb-3">Aksi Cepat</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ route('formInput') }}" class="btn btn-outline-primary btn-quick-action"><i class="bi bi-plus-lg"></i> Tambah OIKOS</a>
+                            <a href="{{ route('jadwal') }}" class="btn btn-outline-success btn-quick-action"><i class="bi bi-calendar-plus"></i> Buat Jadwal</a>
+                            <a href="{{ route('kunjungan.create') }}" class="btn btn-outline-info btn-quick-action"><i class="bi bi-person-walking"></i> Catat Kunjungan</a>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="col-lg-4">
-                <div class="chart-card h-100">
-                    <div class="chart-header d-flex justify-content-between align-items-center">
-                        <h6 class="fw-bold text-adaptive mb-0">Jadwal Mendatang</h6>
-                        <a href="{{ route('jadwal') }}" class="text-primary text-decoration-none small fw-bold">Lihat Semua</a>
-                    </div>
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush">
-                            @forelse ($upcomingSchedules ?? [] as $schedule)
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div class="d-flex align-items-center overflow-hidden">
-                                        <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-2 me-3 d-flex flex-column align-items-center justify-content-center text-center" style="width: 50px; height: 50px;">
-                                            <small class="d-block fw-bold lh-1" style="font-size: 0.65rem;">{{ \Carbon\Carbon::parse($schedule->time)->format('M') }}</small>
-                                            <span class="d-block fw-bold fs-5 lh-1">{{ \Carbon\Carbon::parse($schedule->created_at)->format('d') }}</span>
-                                        </div>
-                                        <div class="text-truncate">
-                                            <div class="fw-bold text-adaptive text-truncate">{{ $schedule->komsel_name ?? 'Komsel' }}</div>
-                                            <div class="small text-muted-adaptive text-truncate">
-                                                <i class="bi bi-clock me-1"></i>{{ \Carbon\Carbon::parse($schedule->time)->format('H:i') }}
-                                                <span class="mx-1">•</span> {{ $schedule->location }}
-                                            </div>
+        {{-- RIGHT COL: JADWAL MENDATANG --}}
+        <div class="col-lg-4">
+            <div class="chart-card h-100">
+                <div class="chart-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-adaptive mb-0">Jadwal Mendatang</h6>
+                    <a href="{{ route('jadwal') }}" class="text-primary text-decoration-none small fw-bold">Lihat Semua</a>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        @forelse ($upcomingSchedules ?? [] as $schedule)
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center overflow-hidden">
+                                    <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-2 me-3 d-flex flex-column align-items-center justify-content-center text-center" style="width: 50px; height: 50px;">
+                                        <small class="d-block fw-bold lh-1" style="font-size: 0.65rem;">{{ \Carbon\Carbon::parse($schedule->time)->format('M') }}</small>
+                                        <span class="d-block fw-bold fs-5 lh-1">{{ \Carbon\Carbon::parse($schedule->created_at)->format('d') }}</span>
+                                    </div>
+                                    <div class="text-truncate">
+                                        <div class="fw-bold text-adaptive text-truncate">{{ $schedule->komsel_name ?? 'Komsel' }}</div>
+                                        <div class="small text-muted-adaptive text-truncate">
+                                            <i class="bi bi-clock me-1"></i>{{ \Carbon\Carbon::parse($schedule->time)->format('H:i') }}
+                                            <span class="mx-1">•</span> {{ $schedule->location }}
                                         </div>
                                     </div>
-                                    @php $statusClass = match($schedule->status) { 'Menunggu' => 'bg-warning text-dark', 'Berlangsung' => 'bg-primary', default => 'bg-secondary' }; @endphp
-                                    <span class="badge {{ $statusClass }} rounded-pill ms-2">{{ $schedule->status }}</span>
-                                </li>
-                            @empty
-                                <li class="list-group-item text-center py-5">
-                                    <div class="opacity-50 mb-2"><i class="bi bi-calendar-x fs-1 text-secondary"></i></div>
-                                    <p class="text-muted-adaptive mb-0 small">Belum ada jadwal ibadah mendatang.</p>
-                                </li>
-                            @endforelse
-                        </ul>
-                    </div>
+                                </div>
+                                @php $statusClass = match($schedule->status) { 'Menunggu' => 'bg-warning text-dark', 'Berlangsung' => 'bg-primary', default => 'bg-secondary' }; @endphp
+                                <span class="badge {{ $statusClass }} rounded-pill ms-2">{{ $schedule->status }}</span>
+                            </li>
+                        @empty
+                            <li class="list-group-item text-center py-5">
+                                <div class="opacity-50 mb-2"><i class="bi bi-calendar-x fs-1 text-secondary"></i></div>
+                                <p class="text-muted-adaptive mb-0 small">Belum ada jadwal ibadah mendatang.</p>
+                            </li>
+                        @endforelse
+                    </ul>
                 </div>
             </div>
         </div>
-    @else
-        {{-- JEMAAT VIEW --}}
-        <div class="card border-0 shadow-sm text-center p-5" style="background: var(--element-bg);">
-            <div class="mb-4"><div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center p-4"><i class="bi bi-emoji-smile fs-1"></i></div></div>
-            <h3 class="fw-bold text-adaptive mb-2">Halo, {{ Auth::user()->name }}!</h3>
-            <p class="text-muted-adaptive mb-4" style="max-width: 500px; margin: 0 auto;">Terima kasih telah menjadi bagian dari keluarga KOMSEL KAIROS.</p>
-            <form action="{{ route('logout') }}" method="POST">@csrf<button type="submit" class="btn btn-outline-danger rounded-pill px-4"><i class="bi bi-box-arrow-right me-2"></i>Logout</button></form>
-        </div>
-    @endif
+    </div>
 
-    {{-- MODAL 1: ANGGOTA --}}
+    {{-- MODALS (Anggota, Oikos, Komsel) --}}
     <div class="modal fade" id="modalAnggota" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content shadow-lg rounded-4">
@@ -249,7 +347,6 @@
         </div>
     </div>
 
-    {{-- MODAL 2: OIKOS --}}
     <div class="modal fade" id="modalOikos" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content shadow-lg rounded-4">
@@ -279,7 +376,6 @@
         </div>
     </div>
 
-    {{-- MODAL 3: KOMSEL --}}
     <div class="modal fade" id="modalKomsel" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content shadow-lg rounded-4">
@@ -292,7 +388,7 @@
                         @forelse($myKomselsDetails as $komsel)
                             <div class="col-6">
                                 <div class="komsel-detail-card">
-                                    <div class="komsel-detail-label text-truncate">{{ $komsel->nama }}</div>
+                                    <div class="komsel-detail-label text-truncate" title="{{ $komsel->nama }}">{{ $komsel->nama }}</div>
                                     <div class="komsel-detail-number">{{ $komsel->member_count }}</div>
                                     <small class="text-muted-adaptive" style="font-size: 0.7rem;">Anggota</small>
                                 </div>
@@ -310,48 +406,3 @@
     </div>
 
 @endsection
-
-@push('scripts')
-    @if (Auth::check() && !empty(Auth::user()->roles))
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Chart JS logic (sama seperti sebelumnya)
-            const getCssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-            const ctx = document.getElementById('dashboardKehadiranChart');
-            if (ctx) {
-                const gridColor = getCssVar('--border-color'); 
-                const textColor = getCssVar('--text-secondary');
-                const primaryColor = getCssVar('--primary-color');
-
-                new Chart(ctx.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: @json($attendanceChartLabels ?? []),
-                        datasets: [{
-                            label: 'Jumlah Hadir',
-                            data: @json($attendanceChartData ?? []),
-                            backgroundColor: primaryColor + '20', 
-                            borderColor: primaryColor,
-                            borderWidth: 2,
-                            pointBackgroundColor: getCssVar('--element-bg'),
-                            pointBorderColor: primaryColor,
-                            pointHoverBackgroundColor: primaryColor,
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            y: { beginAtZero: true, grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, precision: 0 } },
-                            x: { grid: { display: false }, ticks: { color: textColor } }
-                        }
-                    }
-                });
-            }
-        });
-    </script>
-    @endif
-@endpush

@@ -46,6 +46,7 @@ Route::middleware('auth')->group(function () {
     // Rute Manajemen KOMSEL & Anggota
     Route::get('/daftarkomsel', [KomselController::class, 'daftar'])->name('daftarKomsel');
     Route::patch('/users/{user}/assign-komsel', [KomselController::class, 'assignKomsel'])->name('users.assignKomsel');
+    Route::get('/api/komsel/{komselId}/users', [KomselController::class, 'getUsersForKomsel'])->name('api.komsel.users');
 
     // Rute Manajemen Jadwal
     Route::get('/jadwal', [KomselController::class, 'jadwal'])->name('jadwal');
@@ -68,6 +69,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/oikos/{oikosVisit}/detail', [OikosController::class, 'detailOikos'])->name('oikos.detail');
     Route::delete('/oikos/bulk-destroy', [OikosController::class, 'bulkDestroy'])->name('oikos.bulk_destroy');
+    Route::post('/oikos/request-global-unlock', [OikosController::class, 'requestGlobalUnlock'])->name('oikos.request_global_unlock');
 
     Route::get('/kunjungan', [KunjunganController::class, 'index'])->name('kunjungan');
     Route::get('/kunjungan/create', [KunjunganController::class, 'create'])->name('kunjungan.create');
@@ -83,6 +85,20 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('/oikos-visits/{oikosVisit}/request-unlock', [OikosController::class, 'requestReportUnlock'])->name('oikos.request_unlock');
     Route::get('/oikos-visits/{oikosVisit}/approve-unlock', [OikosController::class, 'approveReportUnlock'])->name('oikos.approve_unlock');
+    Route::get('/oikos-visits/{oikosVisit}/approve-schedule', [OikosController::class, 'approveScheduleRequest'])->name('oikos.approve_schedule');
+
+    // Di dalam group middleware auth
+    Route::post('/notifications/mark-read/{id?}', function ($id = null) {
+        $userId = auth()->id();
+        if ($id) {
+            // Hapus satu (Tandai is_read = 1)
+            \App\Models\Notification::where('id', $id)->where('user_id', $userId)->update(['is_read' => true]);
+        } else {
+            // Hapus semua
+            \App\Models\Notification::where('user_id', $userId)->where('is_read', false)->update(['is_read' => true]);
+        }
+        return response()->json(['success' => true]);
+    })->name('notifications.read');
 
     
 

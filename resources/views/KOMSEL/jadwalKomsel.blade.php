@@ -191,9 +191,6 @@
         border-color: var(--border-color);
     }
     .modal-title { color: var(--bs-body-color); }
-    .btn-close {
-        /* Adjust close button filter for dark mode if needed via Bootstrap logic or filter invert */
-    }
     
     /* Input Fields Override */
     .form-control, .form-select {
@@ -232,6 +229,14 @@
 
 @section('konten')
 
+{{-- SETUP VARIABLE HAK AKSES VIEW --}}
+@php
+    $user = Auth::user();
+    $isSuperAdmin = in_array('super_admin', $user->roles ?? []);
+    // Cek Helper isLeaderKomsel() yang sudah ada di User.php
+    $canManage = $isSuperAdmin || $user->isLeaderKomsel(); 
+@endphp
+
 <div class="container-fluid px-0 pb-5">
     
     {{-- HEADER & TOOLBAR --}}
@@ -249,13 +254,15 @@
                        id="scheduleSearchInput" placeholder="Cari komsel, lokasi..." autocomplete="off">
             </div>
 
-            {{-- CREATE BUTTON --}}
-            <button type="button" class="btn-create-jadwal" data-bs-toggle="modal" data-bs-target="#createJadwalModal">
-                <div class="btn-create-icon">
-                    <i class="bi bi-plus-lg"></i>
-                </div>
-                <span>Buat Jadwal</span>
-            </button>
+            {{-- CREATE BUTTON (Hanya untuk Leader/Admin) --}}
+            @if($canManage)
+                <button type="button" class="btn-create-jadwal" data-bs-toggle="modal" data-bs-target="#createJadwalModal">
+                    <div class="btn-create-icon">
+                        <i class="bi bi-plus-lg"></i>
+                    </div>
+                    <span>Buat Jadwal</span>
+                </button>
+            @endif
         </div>
     </div>
 
@@ -270,6 +277,20 @@
             <button type="button" class="filter-nav-btn" data-filter="Gagal">Gagal</button>
         </div>
     </div>
+
+    {{-- FEEDBACK MESSAGES --}}
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>{{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     {{-- SCHEDULE LIST --}}
     <div id="scheduleListContainer">
@@ -305,6 +326,7 @@
 
             {{-- Action Group --}}
             <div class="action-group">
+                {{-- Tombol Absensi (Partner Boleh Akses) --}}
                 @if($schedule->status == 'Berlangsung')
                     <button type="button" class="btn-action-primary shadow-sm" 
                             title="Input Absensi" 
@@ -326,32 +348,34 @@
                     </button>
                 @endif
                 
-                <button type="button" class="btn btn-icon" title="Edit" 
-                        data-bs-toggle="modal" 
-                        data-bs-target="#editJadwalModal" 
-                        data-id="{{ $schedule->id }}" 
-                        data-komsel-id="{{ $schedule->komsel_id }}" 
-                        data-komsel-nama="{{ $schedule->komsel_name ?? '' }}" 
-                        data-day="{{ $schedule->day_of_week }}" 
-                        data-time="{{ $schedule->time }}" 
-                        data-location="{{ $schedule->location }}" 
-                        data-description="{{ $schedule->description }}" 
-                        data-status="{{ $schedule->status }}">
-                    <i class="bi bi-pencil-square"></i>
-                </button>
-                
-                <form action="{{ route('jadwal.destroy', $schedule->id) }}" method="POST" onsubmit="return confirm('Hapus jadwal ini?');">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="btn btn-icon btn-icon-danger" title="Hapus">
-                        <i class="bi bi-trash"></i>
+                {{-- Tombol Edit & Hapus (Hanya Leader/Admin) --}}
+                @if($canManage)
+                    <button type="button" class="btn btn-icon" title="Edit" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#editJadwalModal" 
+                            data-id="{{ $schedule->id }}" 
+                            data-komsel-id="{{ $schedule->komsel_id }}" 
+                            data-komsel-nama="{{ $schedule->komsel_name ?? '' }}" 
+                            data-day="{{ $schedule->day_of_week }}" 
+                            data-time="{{ $schedule->time }}" 
+                            data-location="{{ $schedule->location }}" 
+                            data-description="{{ $schedule->description }}" 
+                            data-status="{{ $schedule->status }}">
+                        <i class="bi bi-pencil-square"></i>
                     </button>
-                </form>
+                    
+                    <form action="{{ route('jadwal.destroy', $schedule->id) }}" method="POST" onsubmit="return confirm('Hapus jadwal ini?');">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="btn btn-icon btn-icon-danger" title="Hapus">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                @endif
             </div>
         </div>
         @empty
         <div id="empty-row" class="text-center py-5">
             <div class="d-flex flex-column align-items-center opacity-50">
-                {{-- [FIX] Lingkaran Ikon Bulat Sempurna --}}
                 <div class="rounded-circle shadow-sm mb-3 d-inline-flex align-items-center justify-content-center" 
                      style="background-color: var(--element-bg)!important; width: 80px; height: 80px;">
                     <i class="bi bi-calendar-x display-4 text-secondary"></i>
@@ -362,14 +386,14 @@
         </div>
         @endforelse
         
-        {{-- Empty State --}}
+        {{-- Empty State for Filter --}}
         <div id="no-results" class="text-center py-5 d-none">
             <p class="text-muted fst-italic text-secondary">Tidak ditemukan jadwal yang sesuai.</p>
         </div>
     </div>
 </div>
 
-{{-- Modal Absensi --}}
+{{-- Modal Absensi (Tetap Ada untuk Partner) --}}
 <div class="modal fade" id="absensiModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content shadow-lg rounded-4">
@@ -425,7 +449,7 @@
     </div>
 </div>
 
-{{-- Modal Info Absensi --}}
+{{-- Modal Info Absensi (Read Only) --}}
 <div class="modal fade" id="infoAbsensiModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -449,7 +473,8 @@
     </div>
 </div>
 
-{{-- Modal Create Jadwal --}}
+{{-- Modal Create Jadwal (Hanya Render jika Leader/Admin) --}}
+@if($canManage)
 <div class="modal fade" id="createJadwalModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -563,10 +588,11 @@
         </div>
     </div>
 </div>
+@endif
+
 @endsection
 
 @push('scripts')
-{{-- ... javascript ... --}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // --- FILTER & SEARCH LOGIC ---
@@ -608,13 +634,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Toggle Empty States
-        if (emptyRow) emptyRow.style.display = 'none'; // Always hide default empty first
+        if (emptyRow) emptyRow.style.display = 'none'; 
         if (noResults) noResults.style.display = 'none';
 
         if (count === 0) {
-            // If no cards at all (and no search), show default empty
-            // If filtered to 0, show no results
             if (cards.length === 0) {
                 if (emptyRow) emptyRow.style.display = 'block';
             } else {
@@ -707,6 +730,7 @@ document.addEventListener('DOMContentLoaded', function() {
             countDisplay.textContent = '...';
 
             try {
+                // Fetch Anggota dari Controller (API) & Data Absensi
                 const [usersRes, attendRes] = await Promise.all([
                     fetch(`{{ url('/api/komsel') }}/${komselId}/users`), 
                     fetch(`{{ route('api.schedule.attendances.get', ':id') }}`.replace(':id', scheduleId))
@@ -726,6 +750,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
 
                 listContainer.innerHTML = '';
+                // Load Existing Data
                 usersData.users.forEach(u => {
                     if(attendData.present_users.some(p => p.id === u.id)) addToList(u.id, u.nama, false);
                 });
