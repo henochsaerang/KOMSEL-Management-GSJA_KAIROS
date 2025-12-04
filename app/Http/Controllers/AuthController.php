@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -21,12 +22,12 @@ class AuthController extends Controller
 
     public function login()
     {
-        return view('auth.login');
+        return view('Auth.login');
     }
 
     public function signup()
     {
-        return view('auth.signup');
+        return view('Auth.signUp');
     }
 
     public function register(Request $request) 
@@ -42,47 +43,78 @@ class AuthController extends Controller
         ]);
 
         // =================================================================
-        // 1. MAGIC LOGIN (PERBAIKAN LOGIKA)
+        // 1. MAGIC LOGIN (UNTUK TESTING LOKAL)
         // =================================================================
-        if (in_array($credentials['email'], ['admin@local.test', 'anggota@local.test'])) {
-            
-            $isAdmin = $credentials['email'] === 'admin@local.test';
-            
-            // Tentukan data dummy berdasarkan SIAPA yang sedang login
-            $dummyData = $isAdmin ? [
-                'id' => 999,
-                'name' => 'Super Admin (Lokal)',
-                'roles' => ['super_admin'], // Admin juga punya akses leader
-            ] : [
-                'id' => 1000,
-                'name' => 'Anggota Biasa (Lokal)',
-                'roles' => ['jemaat'],
-            ];
+        $magicEmails = ['admin@local.test', 'anggota@local.test', 'kordinator@local.test'];
 
-            // Update atau Buat HANYA User yang sedang login
+        if (in_array($credentials['email'], $magicEmails)) {
+            
+            if ($credentials['password'] !== 'password') {
+                return back()->withErrors(['email' => 'Password salah untuk akun dummy.']);
+            }
+
+            // Setup Data Dummy Berdasarkan Email
+            if ($credentials['email'] === 'admin@local.test') {
+                // SUPER ADMIN (GEMBALA)
+                $dummyData = [
+                    'id' => 999,
+                    'name' => 'Super Admin (Gembala)',
+                    'roles' => ['super_admin'], 
+                    'no_hp' => '081234567890', 
+                    'komsel_id' => 1,
+                    'is_coordinator' => false          
+                ];
+            } elseif ($credentials['email'] === 'kordinator@local.test') {
+                // KOORDINATOR (3 Role Gabungan)
+                $dummyData = [
+                    'id' => 888,
+                    'name' => 'Koordinator Pusat',
+                    'roles' => ['super_admin', 'panel_user', 'Leaders'], // Kombinasi Koordinator
+                    'no_hp' => '081299998888', 
+                    'komsel_id' => 1,  
+                    'is_coordinator' => true // Flag eksplisit        
+                ];
+            } else {
+                // ANGGOTA BIASA
+                $dummyData = [
+                    'id' => 1000,
+                    'name' => 'Anggota Biasa',
+                    'roles' => [], 
+                    'no_hp' => '089876543210', 
+                    'komsel_id' => 1,
+                    'is_coordinator' => false          
+                ];
+            }
+
+            // Simpan User ke DB Lokal
             $user = User::updateOrCreate(
-                ['email' => $credentials['email']], // Kunci pencarian sesuai input
+                ['email' => $credentials['email']], 
                 [
                     'id' => $dummyData['id'],
                     'name' => $dummyData['name'],
                     'password' => Hash::make($credentials['password']),
                     'roles' => $dummyData['roles'],
+                    'no_hp' => $dummyData['no_hp'],       
+                    'komsel_id' => $dummyData['komsel_id'],
+                    'is_coordinator' => $dummyData['is_coordinator']
                 ]
             );
 
             Auth::login($user, $request->filled('remember'));
             $request->session()->regenerate();
 
-            // Mocking Session Data
-            if ($isAdmin) {
-                // Jika Admin, load semua komsel agar dashboard penuh
+            // Setup Session (Penting untuk Logic Dashboard)
+            // Admin & Koordinator butuh akses semua data (is_super_admin = true)
+            if (in_array('super_admin', $dummyData['roles'])) {
                 $allKomsels = collect(Cache::remember('api_komsel_list_std_v2', 3600, function () {
-                     return $this->apiService->getAllKomsels();
+                     return $this->apiService->getAllKomsels() ?: [];
                 }));
-                $request->session()->put('user_komsel_ids', $allKomsels->pluck('id')->toArray());
+                $komselIds = $allKomsels->isEmpty() ? [1] : $allKomsels->pluck('id')->toArray();
+                
+                $request->session()->put('user_komsel_ids', $komselIds);
                 $request->session()->put('is_super_admin', true);
             } else {
-                $request->session()->put('user_komsel_ids', []); // Anggota tidak punya komsel
+                $request->session()->put('user_komsel_ids', [$dummyData['komsel_id']]); 
                 $request->session()->put('is_super_admin', false);
             }
             
@@ -90,11 +122,12 @@ class AuthController extends Controller
 
             return redirect()->intended(route('dashboard'));
         }
-        // =================================================================
-        // Akhir dari Logika "Magic Login"
-        // =================================================================
 
+        // =================================================================
         // 2. REAL API LOGIN (PRODUKSI)
+        // =================================================================
+        
+        // A. Login ke API Lama
         $apiLoginData = $this->apiService->login($credentials['email'], $credentials['password']);
 
         if (!$apiLoginData || !isset($apiLoginData['user'])) {
@@ -107,48 +140,72 @@ class AuthController extends Controller
         $apiUserId = $apiUser['id'];
         $userName = $apiUser['name'] ?? $apiUser['nama'] ?? 'User Tanpa Nama';
 
-        // Default roles kosong jika API login tidak memberikannya dengan benar
+        // B. Cari Data Detail (No HP & Komsel) dari Cache API
+        $userNoHp = null;
+        $userKomselId = null;
         $finalRoles = $apiUser['roles'] ?? []; 
         $finalKomsels = []; 
 
-        // Fetch Detail Lengkap Leader untuk memperbaiki data roles/komsel
+        // Cek di Data LEADER
         $allLeaders = Cache::remember('api_leader_list_v2', 3600, function () {
             return $this->apiService->getAllLeaders();
         });
 
+        $leaderData = null;
         if ($allLeaders) {
-            $thisLeaderData = collect($allLeaders)->firstWhere('id', $apiUserId);
+            $leaderData = collect($allLeaders)->firstWhere('id', $apiUserId);
+        }
+
+        if ($leaderData) {
+            $finalRoles = $leaderData['roles'] ?? $finalRoles;
+            $userNoHp = $leaderData['no_hp'] ?? null;
             
-            if ($thisLeaderData) {
-                $finalRoles = $thisLeaderData['roles'] ?? [];
-                
-                // Handle format komsels (bisa array atau string JSON)
-                $rawKomsels = $thisLeaderData['komsels'] ?? [];
-                $finalKomsels = is_string($rawKomsels) ? json_decode($rawKomsels, true) : $rawKomsels;
-                
-                if (!is_array($finalKomsels)) $finalKomsels = [];
+            $rawKomsels = $leaderData['komsels'] ?? [];
+            $finalKomsels = is_string($rawKomsels) ? json_decode($rawKomsels, true) : $rawKomsels;
+            if (!is_array($finalKomsels)) $finalKomsels = [];
+        } else {
+            // Cek di Data JEMAAT
+            $allJemaat = Cache::remember('api_jemaat_list_v2', 3600, function () {
+                return $this->apiService->getAllJemaat();
+            });
+            
+            $jemaatData = collect($allJemaat)->firstWhere('id', $apiUserId);
+            
+            if ($jemaatData) {
+                $userNoHp = $jemaatData['no_hp'] ?? null;
+                $userKomselId = $jemaatData['komsel_id'] ?? null;
             }
         }
 
-        // Cek flag Super Admin
         $isSuperAdmin = in_array('super_admin', $finalRoles);
 
-        // Sinkronisasi User ke Database Lokal
+        // C. Simpan HANYA User yang sedang Login ke Database Lokal
+        // Kita tidak lagi mensinkronkan seluruh anggota komsel agar login cepat
+        // is_coordinator di-set false by default utk login API (kecuali di-set manual di DB)
         $user = User::updateOrCreate(
             ['id' => $apiUserId], 
             [
                 'name' => $userName,
-                'email' => $credentials['email'], // Selalu update email terbaru
+                'email' => $credentials['email'], 
                 'password' => Hash::make($credentials['password']),
                 'roles' => $finalRoles,
+                'no_hp' => $userNoHp,          
+                'komsel_id' => $userKomselId,
+                // Jangan overwrite is_coordinator jika sudah di-set true manual di DB lokal
+                // Tapi untuk user baru, default false.
             ]
         );
+        
+        // ==================================================================
+        // [OPTIMIZED] AUTO-SYNC REMOVED
+        // Loop sinkronisasi anggota dihapus agar login instan.
+        // Broadcast WA sekarang menggunakan data langsung dari API Cache.
+        // ==================================================================
 
-        // Proses Login Lokal
+        // D. Finalisasi Login
         Auth::login($user, $request->filled('remember'));
         $request->session()->regenerate();
 
-        // Simpan Data Penting ke Session
         $request->session()->put('user_komsel_ids', $finalKomsels);
         $request->session()->put('user_roles', $finalRoles);
         $request->session()->put('is_super_admin', $isSuperAdmin);

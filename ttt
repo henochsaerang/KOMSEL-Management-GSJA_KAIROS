@@ -1,0 +1,25 @@
+    public function getAllJemaat()
+    {
+        try {
+            $allAnggota = Anggota::all(); 
+            
+            $formattedJemaat = $allAnggota->map(function ($anggota) {
+                return [
+                    'id' => $anggota->id, 
+                    'nama' => $anggota->nama,
+                    'email' => $anggota->email ?? null, 
+                    'password' => null,
+                    'roles' => [], // Jemaat tidak punya role
+                    'komsel_id' => $anggota->id_time ?? null, // Relasi satu-ke-satu
+                ];
+            });
+
+            return response()->json([
+                'status' => true,
+                'data_jemaat' => $formattedJemaat 
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => false, 'message' => 'Error getAllJemaat', 'error' => $e->getMessage()], 500);
+        }
+    }

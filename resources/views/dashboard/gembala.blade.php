@@ -7,69 +7,57 @@
     /* DARK MODE COMPATIBLE */
     body { background-color: var(--bs-body-bg); }
 
-    /* === CARD STATS === */
+    /* === STAT CARD === */
     .stat-card {
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        background-color: var(--element-bg);
-        overflow: hidden;
-        height: 100%;
+        border: 1px solid var(--border-color); border-radius: 16px;
+        background-color: var(--element-bg); height: 100%;
+        transition: transform 0.2s; box-shadow: var(--shadow-sm);
     }
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--shadow-md);
-        border-color: var(--primary-color);
-    }
-    
-    .stat-link { display: block; text-decoration: none; color: inherit; height: 100%; }
-    .stat-link:hover { color: inherit; }
-    
-    .icon-shape {
-        width: 60px; height: 60px;
-        display: flex; align-items: center; justify-content: center;
-        border-radius: 14px;
-        font-size: 1.75rem;
-        transition: all 0.3s ease;
-    }
-    .stat-card:hover .icon-shape { transform: scale(1.1); }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+    .stat-link { text-decoration: none; color: inherit; display: block; height: 100%; }
 
-    /* === AVATAR & TABLE === */
-    .avatar-circle {
-        width: 42px; height: 42px;
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-        color: white;
-        border-radius: 50%;
+    /* === PROFILE LISTS === */
+    .personnel-card {
+        background-color: var(--element-bg); border: 1px solid var(--border-color);
+        border-radius: 16px; overflow: hidden; height: 100%;
+        display: flex; flex-direction: column;
+    }
+    .personnel-header {
+        padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color);
+        font-weight: 700; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.5px;
+    }
+    .personnel-list {
+        flex-grow: 1; overflow-y: auto; max-height: 400px; /* Scrollable list */
+    }
+    .personnel-item {
+        padding: 0.8rem 1.25rem; border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; gap: 12px;
+    }
+    .personnel-item:last-child { border-bottom: none; }
+    
+    /* Avatar */
+    .avatar-xs {
+        width: 32px; height: 32px; border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
-        font-weight: 700; font-size: 1rem;
-        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        font-weight: 700; font-size: 0.8rem; color: white;
     }
-    .table-hover tbody tr:hover td { background-color: var(--hover-bg); }
-    
-    .role-badge { 
-        font-size: 0.7rem; padding: 0.35em 0.8em; font-weight: 600; 
-        border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+
+    /* Coordinator Highlight */
+    .coord-card {
+        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+        color: white; border: none; border-radius: 16px;
+        padding: 2rem; position: relative; overflow: hidden;
+        box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
     }
-    
-    /* === OIKOS DETAIL === */
-    .oikos-detail-item { font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
-    .oikos-detail-value { font-weight: 800; font-size: 1.2rem; display: block; line-height: 1.2; color: var(--bs-body-color); }
-    
-    /* === CARD & TABLE COLORS === */
-    .card { background-color: var(--element-bg); color: var(--bs-body-color); border-color: var(--border-color); }
-    .card-header, .card-footer { border-color: var(--border-color); background-color: var(--element-bg); }
-    
-    .table { color: var(--bs-body-color); border-color: var(--border-color); }
-    .table thead th { 
-        background-color: var(--element-bg-subtle); color: var(--text-secondary); 
-        border-bottom: 1px solid var(--border-color); 
-        font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+    .coord-card::after {
+        content: ''; position: absolute; right: -20px; bottom: -40px;
+        width: 150px; height: 150px; background: rgba(255,255,255,0.1);
+        border-radius: 50%;
     }
-    .table td { border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-    
-    .input-group-text { background-color: var(--element-bg-subtle); border-color: var(--border-color); color: var(--text-secondary); }
-    .form-control { background-color: var(--input-bg); border-color: var(--border-color); color: var(--bs-body-color); }
-    .form-control:focus { background-color: var(--input-bg); color: var(--bs-body-color); border-color: var(--primary-color); }
+
+    /* Text Colors */
+    .text-adaptive { color: var(--bs-body-color); }
+    .text-muted-adaptive { color: var(--text-secondary); }
 </style>
 @endpush
 
@@ -81,251 +69,164 @@
         <div>
             <h2 class="fw-bold text-body mb-1">Dashboard Eksekutif</h2>
             <p class="text-secondary mb-0">
-                Panel Otoritas Tertinggi &bullet; 
+                Selamat datang, 
                 <span class="text-primary fw-bold">Gembala {{ Auth::user()->name }}</span>
             </p>
         </div>
-        <div class="mt-2 mt-md-0">
-            <span class="badge bg-dark px-3 py-2 rounded-pill shadow-sm border border-secondary">
-                <i class="bi bi-shield-lock-fill me-2"></i>Super Admin Access
-            </span>
-        </div>
+        <span class="badge bg-dark px-3 py-2 rounded-pill shadow-sm border border-secondary">
+            <i class="bi bi-shield-lock-fill me-2"></i>Super Admin Access
+        </span>
     </div>
 
-    {{-- STATISTIK UTAMA --}}
+    {{-- STATISTIK UTAMA (SAMA SEPERTI SEBELUMNYA) --}}
     <div class="row g-4 mb-5">
-        {{-- 1. Total Jiwa --}}
         <div class="col-md-6 col-lg-3">
-            <div class="card stat-card shadow-sm h-100">
-                <div class="card-body p-4 d-flex align-items-center">
-                    <div class="icon-shape bg-primary bg-opacity-10 text-primary me-3">
-                        <i class="bi bi-people-fill"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-secondary text-uppercase fw-bold mb-1 small" style="font-size: 0.7rem; letter-spacing: 0.5px;">Total Jiwa</h6>
-                        <h3 class="fw-bold mb-0 text-body">{{ number_format($totalJemaat) }}</h3>
-                    </div>
+            <div class="card stat-card p-4 d-flex flex-row align-items-center gap-3">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-3 p-3 fs-4"><i class="bi bi-people-fill"></i></div>
+                <div>
+                    <h6 class="text-uppercase text-secondary small fw-bold mb-1">Total Jiwa</h6>
+                    <h3 class="fw-bold mb-0 text-body">{{ number_format($totalJemaat) }}</h3>
                 </div>
             </div>
         </div>
-        
-        {{-- 2. Total Komsel --}}
         <div class="col-md-6 col-lg-3">
             <a href="{{ route('daftarKomsel') }}" class="stat-link">
-                <div class="card stat-card shadow-sm h-100">
-                    <div class="card-body p-4 d-flex align-items-center">
-                        <div class="icon-shape bg-warning bg-opacity-10 text-warning me-3">
-                            <i class="bi bi-diagram-3-fill"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-secondary text-uppercase fw-bold mb-1 small" style="font-size: 0.7rem; letter-spacing: 0.5px;">Komsel Aktif</h6>
-                            <h3 class="fw-bold mb-0 text-body">{{ number_format($totalKomsel) }}</h3>
-                            <div class="d-flex align-items-center text-primary mt-1" style="font-size: 0.75rem; font-weight: 600;">
-                                <span>Lihat Detail</span> <i class="bi bi-arrow-right ms-1"></i>
-                            </div>
-                        </div>
+                <div class="card stat-card p-4 d-flex flex-row align-items-center gap-3">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded-3 p-3 fs-4"><i class="bi bi-diagram-3-fill"></i></div>
+                    <div>
+                        <h6 class="text-uppercase text-secondary small fw-bold mb-1">Komsel Aktif</h6>
+                        <h3 class="fw-bold mb-0 text-body">{{ number_format($totalKomsel) }}</h3>
                     </div>
                 </div>
             </a>
         </div>
-
-        {{-- 3. Leaders Aktif --}}
         <div class="col-md-6 col-lg-3">
-            <div class="card stat-card shadow-sm h-100">
-                <div class="card-body p-4 d-flex align-items-center">
-                    <div class="icon-shape bg-success bg-opacity-10 text-success me-3">
-                        <i class="bi bi-person-lines-fill"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-secondary text-uppercase fw-bold mb-1 small" style="font-size: 0.7rem; letter-spacing: 0.5px;">Leaders Aktif</h6>
-                        <h3 class="fw-bold mb-0 text-body">{{ number_format($totalLeaders) }}</h3>
-                    </div>
+            <div class="card stat-card p-4 d-flex flex-row align-items-center gap-3">
+                <div class="bg-success bg-opacity-10 text-success rounded-3 p-3 fs-4"><i class="bi bi-person-lines-fill"></i></div>
+                <div>
+                    <h6 class="text-uppercase text-secondary small fw-bold mb-1">Leaders</h6>
+                    <h3 class="fw-bold mb-0 text-body">{{ number_format($totalLeaders) }}</h3>
                 </div>
             </div>
         </div>
-
-        {{-- 4. Statistik OIKOS --}}
         <div class="col-md-6 col-lg-3">
-            <div class="card stat-card shadow-sm h-100 border-0 overflow-hidden">
-                <div class="card-body p-0 d-flex flex-column justify-content-between h-100">
-                    <div class="p-4 d-flex align-items-center">
-                        <div class="icon-shape bg-danger bg-opacity-10 text-danger me-3">
-                            <i class="bi bi-heart-fill"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-secondary text-uppercase fw-bold mb-1 small" style="font-size: 0.7rem; letter-spacing: 0.5px;">Total OIKOS</h6>
-                            <h3 class="fw-bold mb-0 text-body">{{ number_format($oikosStats->total ?? 0) }}</h3>
-                        </div>
+            <div class="card stat-card p-0 overflow-hidden border-0 h-100">
+                <div class="p-3 d-flex align-items-center gap-3 border-bottom">
+                    <div class="bg-danger bg-opacity-10 text-danger rounded-3 p-2 fs-5"><i class="bi bi-heart-fill"></i></div>
+                    <div>
+                        <div class="small fw-bold text-secondary text-uppercase">Total OIKOS</div>
+                        <div class="fw-bold fs-5 text-body">{{ number_format($oikosStats->total ?? 0) }}</div>
                     </div>
-                    <div class="row g-0 border-top" style="background-color: var(--hover-bg); border-color: var(--border-color)!important;">
-                        <div class="col-4 text-center py-2 border-end" style="border-color: var(--border-color)!important;">
-                            <span class="oikos-detail-value text-success">{{ number_format($oikosStats->berhasil ?? 0) }}</span>
-                            <span class="oikos-detail-item">Berhasil</span>
-                        </div>
-                        <div class="col-4 text-center py-2 border-end" style="border-color: var(--border-color)!important;">
-                            <span class="oikos-detail-value text-warning">{{ number_format($oikosStats->proses ?? 0) }}</span>
-                            <span class="oikos-detail-item">Proses</span>
-                        </div>
-                        <div class="col-4 text-center py-2">
-                            <span class="oikos-detail-value text-danger">{{ number_format($oikosStats->gagal ?? 0) }}</span>
-                            <span class="oikos-detail-item">Gagal</span>
-                        </div>
-                    </div>
+                </div>
+                <div class="d-flex text-center bg-light small">
+                    <div class="flex-fill py-2 border-end"><span class="text-success fw-bold">{{ $oikosStats->berhasil ?? 0 }}</span> <span class="text-muted d-block" style="font-size:0.6rem">Berhasil</span></div>
+                    <div class="flex-fill py-2 border-end"><span class="text-warning fw-bold">{{ $oikosStats->proses ?? 0 }}</span> <span class="text-muted d-block" style="font-size:0.6rem">Proses</span></div>
+                    <div class="flex-fill py-2"><span class="text-danger fw-bold">{{ $oikosStats->gagal ?? 0 }}</span> <span class="text-muted d-block" style="font-size:0.6rem">Gagal</span></div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- FEEDBACK ALERT --}}
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 border-start border-success border-4 mb-4" role="alert">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-check-circle-fill fs-4 me-3 text-success"></i>
-                <div><h6 class="fw-bold mb-0">Berhasil!</h6><p class="mb-0 small">{{ session('success') }}</p></div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 border-start border-danger border-4 mb-4" role="alert">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-exclamation-triangle-fill fs-4 me-3 text-danger"></i>
-                <div><h6 class="fw-bold mb-0">Gagal!</h6><p class="mb-0 small">{{ session('error') }}</p></div>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
+    {{-- SECTION: STRUKTUR ORGANISASI --}}
+    <h5 class="fw-bold text-body mb-4"><i class="bi bi-diagram-2-fill me-2 text-primary"></i>Struktur Pelayanan</h5>
 
-    {{-- MANAJEMEN KOORDINATOR --}}
-    <div class="card border-0 shadow-sm" style="background-color: var(--element-bg);">
-        <div class="card-header bg-transparent py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center" style="border-color: var(--border-color)!important;">
-            <div>
-                <h5 class="fw-bold mb-1 text-body"><i class="bi bi-sliders me-2 text-primary"></i>Manajemen Koordinator</h5>
-                <p class="text-secondary small mb-0">Tunjuk Leader untuk mengelola operasional harian (Jadwal, Revisi, Absensi).</p>
-            </div>
-            <div class="mt-3 mt-md-0">
-                <div class="input-group">
-                    <span class="input-group-text border-end-0 text-secondary" style="background-color: var(--input-bg); border-color: var(--border-color);"><i class="bi bi-search"></i></span>
-                    <input type="text" id="searchLeaderInput" class="form-control border-start-0" placeholder="Cari nama leader..." style="background-color: var(--input-bg); border-color: var(--border-color); color: var(--bs-body-color);">
+    <div class="row g-4">
+        {{-- 1. KOORDINATOR KOMSEL (FULL WIDTH / HIGHLIGHTED) --}}
+        <div class="col-12 mb-2">
+            @if($coordinator)
+                <div class="coord-card d-flex flex-column flex-md-row align-items-center gap-4">
+                    <div class="bg-white bg-opacity-25 p-1 rounded-circle">
+                        <div class="bg-white text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold fs-2" style="width: 80px; height: 80px;">
+                            {{ substr($coordinator->nama, 0, 1) }}
+                        </div>
+                    </div>
+                    <div class="text-center text-md-start z-1">
+                        <div class="badge bg-warning text-dark fw-bold mb-2"><i class="bi bi-star-fill me-1"></i> Koordinator Utama</div>
+                        <h3 class="fw-bold mb-1">{{ $coordinator->nama }}</h3>
+                        <p class="mb-0 opacity-75">{{ $coordinator->email ?? '-' }}</p>
+                        <p class="mb-0 small opacity-50 mt-1">Mengawasi seluruh aktivitas Komsel & Oikos.</p>
+                    </div>
+                </div>
+            @else
+                <div class="alert alert-secondary border-0 shadow-sm rounded-4 text-center py-4">
+                    <i class="bi bi-exclamation-circle display-4 mb-2 d-block opacity-50"></i>
+                    <h6 class="fw-bold">Belum Ada Koordinator</h6>
+                    <p class="small mb-0">Sistem belum mendeteksi user dengan akses lengkap (Super Admin + Panel User + Leader).</p>
+                </div>
+            @endif
+        </div>
+
+        {{-- 2. LEADERS LIST --}}
+        <div class="col-lg-4">
+            <div class="personnel-card">
+                <div class="personnel-header bg-primary bg-opacity-10 text-primary">
+                    <i class="bi bi-person-badge-fill me-2"></i> Daftar Leaders ({{ $leaders->count() }})
+                </div>
+                <div class="personnel-list custom-scrollbar">
+                    @forelse($leaders as $leader)
+                        <div class="personnel-item">
+                            <div class="avatar-xs bg-primary">
+                                {{ substr($leader->nama, 0, 1) }}
+                            </div>
+                            <div class="text-truncate">
+                                <div class="fw-bold text-adaptive text-truncate" title="{{ $leader->nama }}">{{ $leader->nama }}</div>
+                                <div class="small text-muted-adaptive">Komsel Leader</div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-5 text-muted small">Tidak ada data leader.</div>
+                    @endforelse
                 </div>
             </div>
         </div>
-        
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="leaderTable">
-                    <thead style="background-color: var(--element-bg-subtle);">
-                        <tr>
-                            <th class="px-4 py-3">Identitas Leader</th>
-                            <th class="py-3">Peran & Jabatan</th>
-                            <th class="py-3 text-center">Status</th>
-                            <th class="px-4 py-3 text-end">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($potentialCoordinators as $candidate)
-                            <tr>
-                                <td class="px-4 py-3">
-                                    <div class="d-flex align-items-center">
-                                        <div class="avatar-circle me-3">
-                                            {{ substr(data_get($candidate, 'name', data_get($candidate, 'nama', '?')), 0, 1) }}
-                                        </div>
-                                        <div>
-                                            <div class="fw-bold text-body text-nowrap">{{ data_get($candidate, 'name', data_get($candidate, 'nama', 'Tanpa Nama')) }}</div>
-                                            <div class="small text-secondary"><i class="bi bi-envelope me-1"></i>{{ data_get($candidate, 'email', '-') }}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="py-3">
-                                    @php 
-                                        $roles = data_get($candidate, 'roles', []);
-                                        if (is_string($roles)) {
-                                            $decoded = json_decode($roles, true);
-                                            $roles = (json_last_error() === JSON_ERROR_NONE) ? $decoded : [$roles];
-                                        }
-                                        if (!is_array($roles)) $roles = [];
-                                    @endphp
 
-                                    @if(!empty($roles))
-                                        <div class="d-flex flex-wrap gap-1">
-                                            @foreach($roles as $role)
-                                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 fw-bold role-badge">{{ ucfirst($role) }}</span>
-                                            @endforeach
-                                        </div>
-                                    @else
-                                        <span class="text-secondary small fst-italic">Tidak ada role</span>
-                                    @endif
-                                </td>
-                                <td class="text-center py-3">
-                                    @if(data_get($candidate, 'is_coordinator'))
-                                        <span class="badge bg-success px-3 py-2 rounded-pill shadow-sm">
-                                            <i class="bi bi-patch-check-fill me-1"></i> Koordinator Utama
-                                        </span>
-                                    @else
-                                        <span class="badge text-secondary border px-3 py-2 rounded-pill" style="background-color: var(--element-bg-subtle);">Leader</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-end">
-                                    @php
-                                        $candidateName = data_get($candidate, 'name', data_get($candidate, 'nama', 'Leader'));
-                                        $candidateId = data_get($candidate, 'id');
-                                    @endphp
-
-                                    @if(data_get($candidate, 'is_coordinator'))
-                                        <button class="btn btn-sm btn-outline-secondary disabled opacity-50" disabled>
-                                            <i class="bi bi-check2-all me-1"></i> Terpilih
-                                        </button>
-                                    @else
-                                        <form action="{{ route('admin.appointCoordinator') }}" method="POST" class="d-inline" onsubmit="return confirm('PERINGATAN: Mengangkat {{ $candidateName }} akan MENGGANTIKAN Koordinator saat ini. Apakah Anda yakin?');">
-                                            @csrf
-                                            @method('PATCH')
-                                            <input type="hidden" name="user_id" value="{{ $candidateId }}">
-                                            <button type="submit" class="btn btn-sm btn-primary px-3 fw-bold shadow-sm rounded-pill">
-                                                <i class="bi bi-arrow-up-circle me-1"></i> Angkat
-                                            </button>
-                                        </form>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="4" class="text-center py-5"><div class="d-flex flex-column align-items-center justify-content-center opacity-50"><i class="bi bi-inbox-fill display-4 text-secondary mb-2"></i><h6 class="text-secondary fw-bold">Tidak ada data Leader</h6></div></td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+        {{-- 3. PARTNERS LIST --}}
+        <div class="col-lg-4">
+            <div class="personnel-card">
+                <div class="personnel-header bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-person-heart me-2"></i> Daftar Partners ({{ $partners->count() }})
+                </div>
+                <div class="personnel-list custom-scrollbar">
+                    @forelse($partners as $partner)
+                        <div class="personnel-item">
+                            <div class="avatar-xs bg-success">
+                                {{ substr($partner->nama, 0, 1) }}
+                            </div>
+                            <div class="text-truncate">
+                                <div class="fw-bold text-adaptive text-truncate" title="{{ $partner->nama }}">{{ $partner->nama }}</div>
+                                <div class="small text-muted-adaptive">Partner Pelayanan</div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-5 text-muted small">Tidak ada data partner.</div>
+                    @endforelse
+                </div>
             </div>
         </div>
-        
-        <div class="card-footer py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div class="d-flex align-items-center text-secondary small">
-                <i class="bi bi-info-circle-fill me-2 text-primary"></i>
-                <span><strong>Catatan:</strong> Hanya boleh ada 1 Koordinator. Pengangkatan baru akan menonaktifkan yang lama.</span>
+
+        {{-- 4. ORANG TUA ROHANI LIST --}}
+        <div class="col-lg-4">
+            <div class="personnel-card">
+                <div class="personnel-header bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-people-fill me-2"></i> Orang Tua Rohani ({{ $otr->count() }})
+                </div>
+                <div class="personnel-list custom-scrollbar">
+                    @forelse($otr as $ot)
+                        <div class="personnel-item">
+                            <div class="avatar-xs bg-info">
+                                {{ substr($ot->nama, 0, 1) }}
+                            </div>
+                            <div class="text-truncate">
+                                <div class="fw-bold text-adaptive text-truncate" title="{{ $ot->nama }}">{{ $ot->nama }}</div>
+                                <div class="small text-muted-adaptive">Pembimbing Rohani</div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-5 text-muted small">Tidak ada data OTR.</div>
+                    @endforelse
+                </div>
             </div>
-            
-            <form action="{{ route('admin.resetCoordinator') }}" method="POST" onsubmit="return confirm('KONFIRMASI RESET: Apakah Anda yakin ingin menghapus semua Koordinator? Tidak akan ada yang bertugas sementara.');">
-                @csrf
-                @method('PATCH')
-                <button type="submit" class="btn btn-sm btn-outline-danger fw-bold rounded-pill px-3">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Koordinator
-                </button>
-            </form>
         </div>
     </div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('searchLeaderInput');
-        const tableRows = document.querySelectorAll('#leaderTable tbody tr');
-
-        if(searchInput) {
-            searchInput.addEventListener('keyup', function(e) {
-                const term = e.target.value.toLowerCase();
-                tableRows.forEach(row => {
-                    const text = row.querySelector('td:first-child').textContent.toLowerCase();
-                    row.style.display = text.includes(term) ? '' : 'none';
-                });
-            });
-        }
-    });
-</script>
 @endsection
